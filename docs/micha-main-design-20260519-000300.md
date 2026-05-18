@@ -415,6 +415,324 @@ The final spec review (v3) accepted the doc as a soft PASS at 7.5/10 with the lo
 
 These are caught and survivable. They do NOT block starting the build.
 
+## Eng Review Decisions (2026-05-19 — applied to spec)
+
+The design doc was reviewed via `/plan-eng-review` after the spec-review loop converged. Six decisions are baked into the build plan:
+
+### 1A. Shared admin token replaces `auth.uid() == bounties.host_id` (security tradeoff for SPOF mitigation)
+
+The original spec made the host's pre-authed magic-link session the only valid path to call `accept_request` / `reject_request`. That made the host laptop a single point of failure. New approach:
+
+- Add `HOST_ADMIN_SECRET` env var on the Supabase project (long random string)
+- Host RPCs (`accept_request`, `reject_request`) accept an `X-Admin-Token` request header and validate against the env var
+- Any teammate's device can act as host as long as they have the secret pasted into `/host/[slug]` once (stored in `sessionStorage`, not committed)
+- `auth.uid()` is still used for the joiner side (`request_to_join`, `check_in`) — anonymous Supabase auth
+
+Tradeoff explicitly accepted: the admin token can be leaked if the host queue is screen-shared. Mitigation: NEVER put `/host/[slug]` on the projector. Pitch only shows `/room/[slug]`.
+
+### 1B. Channel-level filters on all Realtime subscriptions + Friday spike validates fan-out
+
+Every Realtime subscription declares a filter on the client to receive only relevant events:
+
+```ts
+// Joiner /b/[slug] — only own request status updates
+supabase.channel(`bounty_requests:${authUid}`)
+  .on('postgres_changes',
+    { event: 'UPDATE', schema: 'public', table: 'bounty_requests',
+      filter: `profile_id=eq.${authUid}` },
+    handler)
+
+// Host /host/[slug] — all requests for this bounty
+supabase.channel(`bounty_requests:${bountyId}`)
+  .on('postgres_changes',
+    { event: '*', schema: 'public', table: 'bounty_requests',
+      filter: `bounty_id=eq.${bountyId}` },
+    handler)
+
+// Projector /room/[slug] — presence changes for this bounty
+supabase.channel(`room_presence:${bountyId}`)
+  .on('postgres_changes',
+    { event: '*', schema: 'public', table: 'room_presence',
+      filter: `bounty_id=eq.${bountyId}` },
+    handler)
+```
+
+Friday 1h spike additionally verifies: 20 concurrent joiner subscriptions + 1 host + 1 projector stays under Supabase free-tier rate limits (200 connections, 100 msg/s).
+
+### 1C. On Realtime reconnect, refetch state via SELECT before resubscribe
+
+Every Realtime channel handler implements `onReconnect`:
+
+```ts
+channel.on('system', { event: 'SUBSCRIBED' }, async () => {
+  // On (re)subscribe, refetch state from REST first to converge any gap.
+  const { data } = await supabase
+    .from('room_presence')
+    .select('*, profiles(name, avatar_url, tags)')
+    .eq('bounty_id', bountyId)
+    .eq('is_present', true);
+  setState(data ?? []);
+});
+```
+
+This guarantees the projector list converges to truth on every reconnect, no ghost rows from messages received during a WebSocket gap.
+
+### 2A. `lib/rpc-errors.ts` — shared typed error parser used by all 4 pages
+
+```ts
+// lib/rpc-errors.ts
+export type TableDropErrorCode =
+  | 'bounty_full' | 'bounty_closed' | 'awaiting_curation'
+  | 'not_requested' | 'rejected' | 'invalid_token' | 'unknown';
+
+export type TableDropError = { code: TableDropErrorCode; message: string; retryable: boolean };
+
+export function parseRpcError(err: PostgrestError | Error | null): TableDropError | null {
+  if (!err) return null;
+  const raw = ('message' in err ? err.message : '') ?? '';
+  if (raw.includes('bounty_full')) return { code: 'bounty_full', message: "This table is full.", retryable: false };
+  if (raw.includes('bounty_closed')) return { code: 'bounty_closed', message: "This bounty has ended.", retryable: false };
+  if (raw.includes('awaiting_curation')) return { code: 'awaiting_curation', message: "Host will accept you shortly.", retryable: false };
+  if (raw.includes('not_requested')) return { code: 'not_requested', message: "Request to join first, then scan the table QR.", retryable: false };
+  if (raw.includes('rejected')) return { code: 'rejected', message: "Host declined this round.", retryable: false };
+  if (raw.includes('invalid_token')) return { code: 'invalid_token', message: "Check-in QR not recognized.", retryable: false };
+  return { code: 'unknown', message: "Something went wrong. Try again.", retryable: true };
+}
+```
+
+All 4 pages import `parseRpcError` and route to a shared `<RpcErrorState code={code}/>` component. Single source of truth for error UX. Unit-tested in `tests/rpc-errors.test.ts`.
+
+### 3A. Test scope: E2E happy path + `check_in` RPC state-machine units
+
+Test plan written to `~/.gstack/projects/f1shyfang-devsoc_halftime/micha-main-eng-review-test-plan-20260519.md`. Two files:
+
+- `tests/e2e/demo-flow.spec.ts` (Playwright, ~1h) — multi-context test covering the full demo flow with latency assertions
+- `tests/rpc/check_in.test.ts` (pgTAP or JS-with-Supabase-client, ~2h) — 6 input states + idempotency
+
+NOT tested (manual verification only): polling fallback path, mobile viewport polish, Realtime fan-out under load (covered by Friday spike instead).
+
+### 4A. Composite indexes on hot SELECT paths
+
+Migration additions:
+
+```sql
+-- Projector query path (partial index — only stores rows we filter on)
+CREATE INDEX room_presence_bounty_present_idx
+  ON room_presence (bounty_id)
+  WHERE is_present = true;
+
+-- Host queue path (status enum, low cardinality, leading bounty_id)
+CREATE INDEX bounty_requests_bounty_status_idx
+  ON bounty_requests (bounty_id, status);
+```
+
+Zero cost at Halftime scale (~30 rows). Pays off when the platform grows past 1k bounties.
+
+### Data flow diagram (added per code-quality recommendation)
+
+```
+            DISCOVER QR                CHECK-IN QR
+                │                          │
+                ▼                          ▼
+       ┌──────────────────────────────────────────┐
+       │  Joiner phone — /b/[slug]                │
+       │  - anon Supabase auth                    │
+       │  - tag form on first visit               │
+       │  - Realtime subscribe: own request row   │
+       │  - state machine: pending|accepted|...   │
+       └──────────────┬────────────────┬──────────┘
+                      │ request_to_join│ check_in
+                      ▼                ▼
+                 ┌─────────────────────────────┐
+                 │ Supabase Postgres + RPCs    │
+                 │ ┌─────────────────────────┐ │
+                 │ │ profiles                │ │
+                 │ │ bounties                │ │
+                 │ │ bounty_requests ────────┼─┼──► RT publication
+                 │ │ room_presence   ────────┼─┼──► RT publication
+                 │ └─────────────────────────┘ │
+                 │ RPCs (SECURITY DEFINER):    │
+                 │  request_to_join, check_in, │
+                 │  accept_request,            │
+                 │  reject_request             │
+                 │  (host RPCs key on          │
+                 │   X-Admin-Token header)     │
+                 └────────┬─────────┬──────────┘
+                          │         │
+            RT bounty_requests   RT room_presence
+            (filter: bounty_id) (filter: bounty_id)
+                          │         │
+              ┌───────────▼─┐     ┌─▼────────────────┐
+              │ Host laptop │     │ Projector laptop │
+              │ /host/[slug]│     │ /room/[slug]     │
+              │ admin token │     │ public read      │
+              │ accept/rej  │     │ live snapshot    │
+              └─────────────┘     └──────────────────┘
+```
+
+---
+
+## Design Review Decisions (2026-05-19 — applied to build spec)
+
+The doc was reviewed via `/plan-design-review` after the eng review locked the build. Seven design decisions are baked in for the projector + mobile join pages (host queue + feed deferred to engineering defaults).
+
+### 1A. `/room/[slug]` projector hierarchy — name list dominates
+
+```
++----------------------------------------------------+
+| TableDrop · halftime-tabledrop                     |  ← header strip, 60px, bounty slug + brand
++----------------------------------------------------+
+|                                                    |
+|  Want to argue about Sydney density?               |  ← bounty title, Instrument Serif 64px, max 2 lines
+|  Hosted by [name] · 5/10 seats                     |  ← subtitle, Geist 20px, dim
+|                                                    |
++----------------------------------------------------+
+|                                                    |
+|  Sarah                  AI · urban planning        |  ← name row, Geist 32px, ~80px tall
+|  Marcus                 design · architecture      |
+|  Priya                  research · climate         |  ← list is the hero at ~60% of vertical space
+|  ...                                               |
+|                                                    |
++----------------------------------------------------+
+```
+
+Name list at 60% of vertical real estate. Bounty title above (Instrument Serif 64px, max 2 lines). Counter "X/Y seats" in subtitle, not its own widget. Visual story: the people ARE the product.
+
+### 1B. `/b/[slug]` first-state hierarchy — invitation line dominates
+
+```
++-----------------------+
+| TableDrop             |  ← brand strip, top, small
++-----------------------+
+|                       |
+|  Want to argue        |  ← invitation line, Instrument Serif 32px,
+|  about Sydney         |     max 7 words, reads like a personal text
+|  density tonight?     |
+|                       |
+|  By [host] · table 7  |  ← subtitle, Geist 14px, dim
+|  · ends at 4:30pm     |
+|                       |
+|  [ AI ] [ design ] …  |  ← bounty tags as chips, Geist 12px
+|                       |
+|  + Add your tags ──── |  ← tag input + chips, judge fills
+|                       |
+|  ┌─────────────────┐  |
+|  │   I'm in        │  ← CTA button, 56px tall (>44 target),
+|  └─────────────────┘  |     warm-orange filled
+|                       |
++-----------------------+
+```
+
+Personality-first headline (Instrument Serif 32px). Tag entry + CTA below. Reads like a personal invitation, not an event form. Maps to the rent-a-gf-mechanic "summon" verb.
+
+### 2A. Post-accept screen on `/b/[slug]`
+
+```
++-----------------------+
+|                       |
+|        ✓              |  ← checkmark glyph, animates in 200ms,
+|                       |     warm orange (#ff7a00), 64px
+|     You're in.        |  ← Instrument Serif 32px
+|                       |
+|  Scan the table QR    |  ← Geist 18px, instruction line
+|  to join the room.    |
+|                       |
+|  ┌─────────────────┐  |
+|  │                 │  |
+|  │   [Check-in QR] │  ← QR PNG rendered at 70% screen width,
+|  │   rendered      │     server-side encodes ?ci=token
+|  │   inline        │  |
+|  │                 │  |
+|  └─────────────────┘  |
+|                       |
++-----------------------+
+```
+
+**Note on premise tension:** rendering the Check-in QR on the joiner's own phone means a judge could tap-scan their own screen to complete check-in without physically moving. This loosens premise #3 (physical presence required) into "host has accepted the request." Accepted tradeoff for hackathon scope — simpler demo, slightly weaker third-space story. Engineering option: serve the QR as a `<canvas>` that registers a click without actually being a scannable link to disambiguate "scan on your phone screen" from "scan from another device" — but adds complexity. Defer.
+
+### 3A. Queue-waiting state on `/b/[slug]` — live queue position
+
+Header: "You're 3rd in line." (Instrument Serif 28px). Subtitle: "Host is reading..." with a slow 2s pulse animation. Below: "5 people already in this room" (small, dim). Requires a `get_queue_rank(bounty_slug, profile_id)` view or RPC that returns the count of pending requests with `created_at < current_user_row`. Realtime-subscribed so the rank updates as other requests get accepted in front of you.
+
+### 4A. Editorial visual identity
+
+| Token | Value |
+|-------|-------|
+| `fonts.display` | Instrument Serif (variable, Google Fonts) |
+| `fonts.body` | Geist Sans (already in the template via `next/font/google`) |
+| `colors.bg` | `#000000` (projector) / `#0a0a0a` (mobile) |
+| `colors.text` | `#fafafa` |
+| `colors.dim` | `#888888` |
+| `colors.accent` | `#ff7a00` (warm orange) |
+| `motion.row-insert` | 200ms cubic-bezier(0.34, 1.56, 0.64, 1) |
+| `motion.row-pulse` | 1.5s ease-out, accent color flash |
+
+No purple gradients, no Inter for display, no system-ui fallback. The projector renders as an editorial poster, not a Tailwind template.
+
+### 5A. Capture tokens in `lib/design-tokens.ts`
+
+```ts
+// lib/design-tokens.ts
+export const tokens = {
+  fonts: {
+    display: 'var(--font-instrument-serif), serif',
+    body:    'var(--font-geist-sans), sans-serif',
+  },
+  colors: {
+    bg:      '#000000',
+    bgSoft:  '#0a0a0a',
+    text:    '#fafafa',
+    dim:     '#888888',
+    accent:  '#ff7a00',
+  },
+  motion: {
+    rowInsertMs: 200,
+    rowInsertEasing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    rowPulseMs: 1500,
+  },
+  layout: {
+    minTouchTarget: 44,
+    projectorWidth: 1920,
+    projectorHeightMin: 720,
+    mobileMinWidth: 375,
+  },
+} as const;
+```
+
+`tailwind.config.ts` extends from these (`theme.colors.accent = tokens.colors.accent`). Canvas motion in `/room/[slug]` imports `tokens.motion` directly.
+
+### 6A. Viewport targets
+
+- **Projector:** design at 1920×1080. **Test at 1280×720** Saturday evening on a real second monitor or projector before sleep. Fonts scale via `clamp()`: `clamp(48px, 5.5vw, 64px)` for the bounty title so 720p still reads correctly.
+- **Mobile:** iPhone SE 375px is the baseline. All tap targets ≥44px. The "I'm in" CTA is 56px tall.
+
+### 7A. Row-insert motion on `/room/[slug]`
+
+When a new `room_presence` row arrives (Realtime UPDATE with `is_present: true`):
+
+1. Row mounts at `translateY(40px); opacity: 0`
+2. Animates to `translateY(0); opacity: 1` over 200ms with cubic-bezier(0.34, 1.56, 0.64, 1) — soft overshoot bounce
+3. Name text element gets a `.row-pulse` class for 1500ms — color transitions from `text` → `accent` → `text` via CSS keyframes
+4. After 1500ms, class is removed; row sits static in the list
+
+If multiple rows arrive within 500ms of each other, each gets its own stagger (50ms offset per row) so the audience can read each name appear distinctly. Without staggering, batch arrivals look like a list refresh rather than individual events.
+
+---
+
+### Decisions Deferred (engineering defaults)
+
+| Item | Reason for deferral |
+|------|---------------------|
+| `/host/[slug]` visual design | Outside the review focus (projector + mobile). Use shadcn defaults, utility aesthetic. |
+| `/` feed page visual design | Halftime ships one seeded bounty; feed is post-Halftime scope. |
+| `/b/[slug]` non-first states (rejected, bounty_full, bounty_closed) | Doc's existing error-state table covers copy; visual is a single `<RpcErrorState/>` component (from eng review 2A). |
+| Loading skeletons across pages | Shadcn skeletons, no custom design. |
+| Microcopy across all states | Final pass during Sunday morning slide polish. |
+| Keyboard nav / screen reader semantics | Shadcn defaults; not demo-critical for projector or judge-scan flow. |
+| `prefers-reduced-motion` for row-insert | Add at implementation time: `@media (prefers-reduced-motion: reduce) { .row-pulse { animation: none; } }` |
+
+---
+
 ## Reviewer Concerns Audit Trail (v1 → v2 → v3)
 
 | v2 issue                              | v3 fix                                                                   |
