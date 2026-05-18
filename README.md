@@ -1,109 +1,103 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# DebateConnect
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+> Omegle meets poker — for arguments. Two strangers get matched on live video, both stake credits, argue out loud, and an AI judge decides who wins. The better your argument, the richer you get.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+This repository hosts two hackathon projects. **DebateConnect** is the V1 we're shipping for halftime; see `docs/debate-connect/PLAN.md` for the full design doc and `docs/debate-connect/TODOS.md` for V2 follow-ups.
 
-## Features
+## Stack
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+- **Next.js 16** (App Router) on Vercel Fluid Compute
+- **Daily.co** prebuilt iframe for live video
+- **MediaRecorder + OpenAI Whisper** for per-turn audio transcription
+- **Anthropic Claude (haiku-4-5)** for prompt generation + streamed AI judgment
+- **Pusher** for matchmaking + judgment broadcast
+- **Upstash Redis** for queue + room state (TTL 2h)
+- **localStorage** for sessionId + fake credit balance (V1)
 
-## Demo
+See `docs/debate-connect/PLAN.md` for the full architecture diagram.
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+## Environment variables
 
-## Deploy to Vercel
+Copy `.env.example` to `.env.local` and fill in real values. Required for the live debate path:
 
-Vercel deployment will guide you through creating a Supabase account and project.
+| Var | Purpose |
+| --- | --- |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Room state + matchmaking queue |
+| `PUSHER_APP_ID` / `PUSHER_KEY` / `PUSHER_SECRET` / `PUSHER_CLUSTER` | Server-side broadcast |
+| `NEXT_PUBLIC_PUSHER_KEY` / `NEXT_PUBLIC_PUSHER_CLUSTER` | Client-side subscribe |
+| `ANTHROPIC_API_KEY` | Prompt generation + AI judge |
+| `OPENAI_API_KEY` | Whisper transcription |
+| `NEXT_PUBLIC_DAILY_SUBDOMAIN` | Video iframe origin (`<subdomain>.daily.co`). See "Daily.co rooms" below. |
+| `ADMIN_SECRET` | Required by `POST /admin/seed` (`x-admin-secret` header) |
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+Supabase vars in `.env.example` are unused in V1 (auth is a V2 follow-up).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+## Daily.co rooms
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+The debate room iframe hits `https://{NEXT_PUBLIC_DAILY_SUBDOMAIN}.daily.co/{roomId}` and relies on Daily's **auto-create** behavior — the first visitor to a room URL implicitly creates it. This works out of the box on new Daily accounts.
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+If your subdomain has auto-create disabled or you see "Room does not exist", you have two options:
 
-## Clone and run locally
+1. **Recommended for hackathon:** flip auto-create back on in the Daily dashboard at *Domains → Settings → Privacy → Allow room creation on the fly*.
+2. **Server-side pre-create:** add a `DAILY_API_KEY` and call `POST https://api.daily.co/v1/rooms` from `app/api/join-queue/route.ts` immediately after generating `roomId`, before triggering the `room-ready` Pusher event. This is documented in PLAN.md as a V2 follow-up.
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+The video tile renders a "Video unavailable" placeholder if `NEXT_PUBLIC_DAILY_SUBDOMAIN` is unset; the audio + transcription + judgment loop still works without video.
 
-2. Create a Next.js app using the Supabase Starter template npx command
+## Local dev
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+```bash
+npm install
+cp .env.example .env.local         # then fill in values
+npm run dev                        # http://localhost:3000
+```
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+To exercise the debate path locally you need at least Pusher + Upstash + Anthropic + Daily configured. Without Daily, the video tile shows a "Video unavailable" placeholder but the rest of the loop still works.
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+## Tests
 
-3. Use `cd` to change into the app's directory
+```bash
+npm test          # vitest, 4-test smoke kit (20 assertions)
+npm run lint
+npm run build
+```
 
-   ```bash
-   cd with-supabase-app
-   ```
+The smoke kit covers the four silent-failure modes per `docs/debate-connect/TEST-PLAN.md`:
 
-4. Rename `.env.example` to `.env.local` and update the following:
+- `__tests__/verdict-parser.test.ts` — Zod parse, draw fallback, malformed retry
+- `__tests__/matchmaking.test.ts` — atomic LPOP, no self-match, third joiner waits
+- `__tests__/turn-dedup.test.ts` — idempotent submit-turn by `turn_index`
+- `__tests__/state-guard.test.ts` — submit/judge state transitions
 
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
+## Admin seed (demo backup path)
 
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+When stage mic conditions are uncertain, bypass the audio stack and jump straight to AI judgment:
 
-5. You can now run the Next.js local development server:
+```bash
+curl -X POST $URL/admin/seed \
+  -H "x-admin-secret: $ADMIN_SECRET" \
+  -H "content-type: application/json" \
+  -d '{
+    "prompt": "Remote work is net negative for society",
+    "transcripts": [
+      "Player 1 turn 1 transcript...",
+      "Player 2 turn 1 transcript...",
+      "Player 1 turn 2 transcript...",
+      "Player 2 turn 2 transcript...",
+      "Player 1 turn 3 transcript...",
+      "Player 2 turn 3 transcript..."
+    ]
+  }'
+```
 
-   ```bash
-   npm run dev
-   ```
+Returns `{ "roomId": "...", "url": "/debate/..." }`. Open that URL and click "Request Judgment" — the rest of the demo loop runs end-to-end.
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+## What's not in V1
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+Per `docs/debate-connect/TODOS.md`, these are deferred:
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
-
-## Feedback and issues
-
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
-
-## More Supabase examples
-
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+- Presence/forfeit detection (cut in eng-review D1)
+- Variable stake adjuster (cut in eng-review D7 — hardcoded 25 credits)
+- Persistent credits across devices (localStorage only)
+- Auth / accounts (Supabase wired but unused at V1)
+- Mobile responsiveness (desktop demo only)
+- ELO / leaderboard / spectator mode
