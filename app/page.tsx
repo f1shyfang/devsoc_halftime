@@ -1,58 +1,97 @@
-import { DeployButton } from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
-import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/lib/utils";
 import Link from "next/link";
-import { Suspense } from "react";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+type FeedBounty = {
+  slug: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string;
+  max_seats: number;
+};
+
+export default async function FeedPage() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bounties_public")
+    .select("slug, title, description, location, starts_at, ends_at, max_seats")
+    .order("starts_at", { ascending: true });
+
+  const bounties = (data ?? []) as FeedBounty[];
+  const halftime = bounties.find((b) => b.slug === "halftime-tabledrop");
+  const rest = bounties.filter((b) => b.slug !== "halftime-tabledrop");
+
   return (
-    <main className="min-h-screen flex flex-col items-center">
-      <div className="flex-1 w-full flex flex-col gap-20 items-center">
-        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
-            <div className="flex gap-5 items-center font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
-            </div>
-            {!hasEnvVars ? (
-              <EnvVarWarning />
-            ) : (
-              <Suspense>
-                <AuthButton />
-              </Suspense>
-            )}
-          </div>
-        </nav>
-        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
-          <Hero />
-          <main className="flex-1 flex flex-col gap-6 px-4">
-            <h2 className="font-medium text-xl mb-4">Next steps</h2>
-            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-          </main>
-        </div>
+    <main className="min-h-screen max-w-2xl mx-auto px-6 py-12 flex flex-col gap-12">
+      <header className="flex flex-col gap-2">
+        <h1 className="font-display text-4xl">TableDrop</h1>
+        <p className="text-[var(--td-dim)] text-sm">
+          Summon a table. Curated rooms, here, now.
+        </p>
+      </header>
 
-        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
-              Supabase
-            </a>
-          </p>
-          <ThemeSwitcher />
-        </footer>
-      </div>
+      {halftime && (
+        <section className="flex flex-col gap-2">
+          <span className="text-xs uppercase tracking-widest text-[var(--td-accent)]">
+            Now
+          </span>
+          <BountyCard bounty={halftime} highlight />
+        </section>
+      )}
+
+      {rest.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <span className="text-xs uppercase tracking-widest text-[var(--td-dim)]">
+            Other tables
+          </span>
+          <div className="flex flex-col gap-3">
+            {rest.map((b) => (
+              <BountyCard key={b.slug} bounty={b} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {bounties.length === 0 && (
+        <p className="text-[var(--td-dim)]">No tables open. Check back soon.</p>
+      )}
     </main>
+  );
+}
+
+function BountyCard({
+  bounty,
+  highlight,
+}: {
+  bounty: FeedBounty;
+  highlight?: boolean;
+}) {
+  const endsAt = new Date(bounty.ends_at).toLocaleString([], {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return (
+    <Link
+      href={`/b/${bounty.slug}`}
+      className={`block rounded-md border p-5 flex flex-col gap-2 transition-colors ${
+        highlight
+          ? "border-[var(--td-accent)] hover:bg-white/[0.02]"
+          : "border-white/10 hover:bg-white/[0.02]"
+      }`}
+    >
+      <h2 className="font-display text-2xl leading-tight">{bounty.title}</h2>
+      {bounty.description && (
+        <p className="text-sm text-[var(--td-text)]/80 line-clamp-2">
+          {bounty.description}
+        </p>
+      )}
+      <p className="text-xs text-[var(--td-dim)] mt-1">
+        {bounty.location ? `${bounty.location} · ` : ""}ends {endsAt} · {bounty.max_seats} seats
+      </p>
+    </Link>
   );
 }
