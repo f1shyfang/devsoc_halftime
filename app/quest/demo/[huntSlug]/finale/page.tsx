@@ -3,15 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getDeviceIdServer } from "@/lib/device-id.server";
 import { Crumbs } from "../../_components/Crumbs";
+import { FinaleActions } from "./FinaleActions";
 
 export const metadata = { title: "UNSW Quest · Finale" };
-
-function fmt(sec: number) {
-  const s = Math.max(0, Math.floor(sec));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
-}
 
 export default async function FinalePage({
   params,
@@ -64,18 +58,43 @@ export default async function FinalePage({
   completed.sort((a, b) => (a.total_time_seconds ?? 0) - (b.total_time_seconds ?? 0));
   const rank = completed.findIndex((s) => s.id === session.id) + 1;
 
-  // Progress + photo gallery (flat select; joins handled separately if needed).
+  // Progress + photo gallery.
   const { data: progress } = await supabase
     .from("quest_clue_progress")
     .select("clue_id, hints_used, manual_override, photo_capture_url, unlocked_at")
-    .eq("hunt_session_id", session.id);
+    .eq("hunt_session_id", session.id)
+    .order("unlocked_at", { ascending: true });
+
+  // Clue lookup (for photo captions). Pull only what we need for this hunt.
+  const { data: clueRows } = await supabase
+    .from("quest_clues")
+    .select("id, photo_challenge_prompt, location_name")
+    .eq("hunt_id", hunt.id);
+  const clueById = new Map(
+    (clueRows ?? []).map((c) => [c.id, c]),
+  );
 
   const hintsUsed = (progress ?? []).reduce((n, p) => n + (p.hints_used ?? 0), 0);
   const overrides = (progress ?? []).filter((p) => p.manual_override).length;
-  const photos = (progress ?? []).filter((p) => p.photo_capture_url).length;
+  const photosCount = (progress ?? []).filter((p) => p.photo_capture_url).length;
+
+  // Only include photos with a real, fetchable URL — play-shell falls back to
+  // an "inline:data:…" stub when storage upload fails; those can't be rendered
+  // as <img src>.
+  const photos = (progress ?? [])
+    .filter((p) => typeof p.photo_capture_url === "string" && p.photo_capture_url.startsWith("http"))
+    .map((p) => {
+      const c = clueById.get(p.clue_id);
+      return {
+        url: p.photo_capture_url as string,
+        prompt: c?.photo_challenge_prompt ?? null,
+        location: c?.location_name ?? null,
+      };
+    });
 
   const totalSec = session.total_time_seconds ?? 0;
   const rankSuffix = rank === 1 ? "st" : rank === 2 ? "nd" : rank === 3 ? "rd" : "th";
+  const rankLabel = rank > 0 ? `${rank}${rankSuffix}` : "";
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "🏁";
 
   return (
@@ -88,83 +107,32 @@ export default async function FinalePage({
         ]}
       />
 
-      <article
+      <FinaleActions
+        huntName={hunt.name}
+        teamName={team.name}
+        totalSec={totalSec}
+        rank={rank}
+        totalCompleted={completed.length}
+        rankLabel={rankLabel}
+        medal={medal}
+        hintsUsed={hintsUsed}
+        photosCount={photosCount}
+        overrides={overrides}
+        photos={photos}
+      />
+
+      <Link
+        href={`/quest/demo/${huntSlug}/standings`}
+        className="btn ghost"
         style={{
           width: "min(100%, 560px)",
-          position: "relative",
-          background: "var(--paper)",
-          border: "var(--stroke) solid var(--ink)",
-          borderRadius: 24,
-          padding: "36px 28px 28px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 18,
-          boxShadow: "6px 8px 0 rgba(26,26,34,0.08)",
-          overflow: "hidden",
+          minHeight: 44,
+          textDecoration: "none",
+          textAlign: "center",
         }}
       >
-        <div className="confetti">
-          <i style={{ top: "6%", left: "8%" }} />
-          <i style={{ top: "10%", left: "78%", background: "var(--lime)", transform: "rotate(-30deg)" }} />
-          <i style={{ top: "30%", left: "4%", background: "var(--ink)" }} />
-          <i style={{ top: "42%", left: "88%", background: "var(--lime)" }} />
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div className="hand" style={{ fontSize: 18, color: "var(--accent)", letterSpacing: "0.06em" }}>
-            YOU FINISHED
-          </div>
-          <div className="hand" style={{ fontSize: 48, lineHeight: 1, marginTop: 4 }}>{hunt.name}</div>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div className="mono small muted">Total time</div>
-          <div
-            style={{
-              fontFamily: "var(--mono)",
-              fontSize: 64,
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-              color: "var(--ink)",
-              lineHeight: 1,
-              marginTop: 4,
-            }}
-          >
-            {fmt(totalSec)}
-          </div>
-          <div className="row" style={{ justifyContent: "center", gap: 4, marginTop: 10 }}>
-            <span className="pill acc-pill" style={{ fontSize: 12 }}>
-              {rank > 0 ? `${rank}${rankSuffix} of ${completed.length}` : "finished"} {medal}
-            </span>
-          </div>
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: 10,
-            marginTop: 4,
-          }}
-        >
-          <div className="card flat" style={{ padding: 14, textAlign: "center" }}>
-            <div className="hand" style={{ fontSize: 28 }}>{hintsUsed}</div>
-            <div className="xs">hints</div>
-          </div>
-          <div className="card flat" style={{ padding: 14, textAlign: "center" }}>
-            <div className="hand" style={{ fontSize: 28 }}>{photos}</div>
-            <div className="xs">photos</div>
-          </div>
-          <div className="card flat" style={{ padding: 14, textAlign: "center" }}>
-            <div className="hand" style={{ fontSize: 28 }}>{overrides}</div>
-            <div className="xs">overrides</div>
-          </div>
-        </div>
-        <Link
-          href={`/quest/demo/${huntSlug}/standings`}
-          className="btn primary"
-          style={{ width: "100%", minHeight: 52, fontSize: 15, textDecoration: "none", marginTop: 6 }}
-        >
-          <span>↗</span> See full standings
-        </Link>
-      </article>
+        <span>↗</span> See full standings
+      </Link>
 
       <Link
         href="/quest/demo"

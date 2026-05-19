@@ -1,6 +1,16 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getDeviceIdServer } from "@/lib/device-id.server";
+import { DisplayNameSheet } from "./_components/DisplayNameSheet";
+import { OnboardingCarousel } from "./_components/OnboardingCarousel";
+
+// "Coming Soon" cards — PRD §6.2 says the home should gesture at future
+// content. These are static placeholders, no DB rows.
+const COMING_SOON = [
+  { emoji: "🎃", name: "Horror Night", blurb: "Lights-off campus run, scariest corners, weekly drop near Halloween.", eta: "Spring '26" },
+  { emoji: "⚙️", name: "Engineering Mile", blurb: "Red Centre to Tyree, all the lab building easter eggs.", eta: "Sem 2" },
+  { emoji: "🧃", name: "Freshers Survival", blurb: "Free pizza spots, cheapest coffee, secret nap nooks. Soft-tutorial vibe.", eta: "O-Week '27" },
+];
 
 export const metadata = { title: "UNSW Quest · Pick a hunt" };
 
@@ -13,6 +23,15 @@ export default async function DemoHomePage() {
     p_user_id: deviceId,
     p_display_name: "",
   });
+
+  // Pull the profile so we can show the real display name and decide whether
+  // to prompt for one. `quest_ensure_profile` defaults display_name to 'player'.
+  const { data: profile } = await supabase
+    .from("quest_profiles")
+    .select("display_name, avatar_color")
+    .eq("user_id", deviceId)
+    .maybeSingle();
+  const needsName = !profile || profile.display_name === "player";
 
   const { data: hunts, error } = await supabase
     .from("quest_hunts")
@@ -127,11 +146,39 @@ export default async function DemoHomePage() {
             No hunts published yet.
           </div>
         )}
+
+        {/* Coming Soon — gestures at future content (PRD §6.2). */}
+        <div className="label" style={{ marginTop: 10, paddingLeft: 4, color: "var(--quest-muted)" }}>
+          COMING SOON
+        </div>
+        {COMING_SOON.map((cs) => (
+          <div
+            key={cs.name}
+            className="card"
+            style={{
+              padding: 16,
+              opacity: 0.7,
+              borderStyle: "dashed",
+              borderColor: "var(--hair)",
+            }}
+          >
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <div className="hand" style={{ fontSize: 22, lineHeight: 1 }}>
+                {cs.emoji} {cs.name}
+              </div>
+              <div className="pill ghost mono" style={{ fontSize: 11 }}>{cs.eta}</div>
+            </div>
+            <div className="p muted small" style={{ marginTop: 6 }}>{cs.blurb}</div>
+          </div>
+        ))}
       </div>
 
       <div className="muted small" style={{ textAlign: "center", marginTop: 16, maxWidth: 360 }}>
-        Player <span className="mono">{deviceId.slice(0, 8)}</span>
+        Playing as <b>{profile?.display_name ?? "player"}</b>
       </div>
+
+      <OnboardingCarousel />
+      {needsName ? <DisplayNameSheet initialName={profile?.display_name ?? ""} /> : null}
     </div>
   );
 }

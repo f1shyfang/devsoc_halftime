@@ -17,6 +17,37 @@ Long-term, the business model is **society sponsorship**: clubs, faculties, and 
 
 ---
 
+## 0. Implementation Notes (v1 demo — what actually shipped)
+
+This PRD was written assuming React Native + Expo + magic-link auth. The shipped v1 demo diverges on three points. The product intent in §6 and §8 below is preserved as the target state; this section captures the demo-time deviations so they don't read as gaps.
+
+### 0.1 Stack — Next.js, not React Native
+The v1 demo is a **mobile-first Next.js 16 web app** (Turbopack, Supabase data plane unchanged). Same Supabase schema, same RPCs, same Realtime channels — only the client runtime is different. Camera, geolocation, and QR scanning use browser APIs (`getUserMedia`, `navigator.geolocation`, `jsqr`) instead of `expo-*` modules. PRD §8.1 is the v2 target; for v1 demo, read it as a description of intent rather than current state.
+
+### 0.2 Auth — device-id cookie, not magic link
+**Supabase Auth is removed for the v1 demo.** Identity is a v4 UUID written to a `quest_device_id` cookie by `proxy.ts` on first request. Every quest RPC takes `p_user_id uuid` as its first arg, supplied by the client. Consequences:
+- §6.1 "magic link via Supabase Auth" does not apply to v1.
+- §6.1 "✓ UNSW Student" badge has no signal source in v1 (the email-domain check is gone). Field exists in the schema, always `false`.
+- §6.9 "push notification for invite received" is not implemented — without an identity service we have no way to register tokens.
+- RLS is dropped on every `quest_*` table. Anon callers can read/write directly. The path-as-secret convention on `quest-photos` is the only soft guard.
+
+When the project moves past the demo, the first thing to put back is a real auth model (Supabase anonymous auth is the lowest-friction option). See `memory/project_no_auth_demo.md` for the trade-off rationale.
+
+### 0.3 Results card — client-side, not edge function
+PRD §6.8 and §8.4 specify a server-side `generate_results_card` Edge Function. The function exists in `supabase/functions/` but is **not deployed** for the v1 demo (deployment needs the Supabase CLI + an access token, both out of scope this round). Instead, the finale renders the card directly in the DOM and captures it client-side via `html-to-image` + Web Share API. The result is visually equivalent for the demo; the edge function path remains the v1.5 upgrade.
+
+### 0.4 What's actually verified vs. PRD §4.3
+| Acceptance bar | Status |
+|---|---|
+| Hero hunt 60–75 min, 4-person team, ≥3 playtests | Not yet playtested |
+| Mini hunt 15–20 min, 1–4 person team, ≥2 playtests | Not yet playtested |
+| Leaderboard p95 < 2s | Wired (Supabase Realtime), not load-tested with ≥4 teams |
+| Results card < 3s, iOS + Android | Client-side path renders synchronously, not yet measured |
+| Manual override never visible < 2 min | ✅ Code-verified ([play-shell.tsx](../../app/quest/demo/[huntSlug]/play/play-shell.tsx) `120_000`) |
+| Zero crashes during 30-min demo | Not yet tested |
+
+---
+
 ## 1. Problem & Opportunity
 
 ### 1.1 The Problem

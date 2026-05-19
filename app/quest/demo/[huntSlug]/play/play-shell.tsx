@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getDeviceIdClient } from "@/lib/device-id";
 import type { Clue, Hunt, MemberRow, ProgressRow, Session, TeamSummary } from "./types";
 import { haversineM } from "./geo";
+import { QRScanner } from "./QRScanner";
 
 type Props = {
   hunt: Hunt;
@@ -542,23 +543,27 @@ function ActiveView({
   const withinGeofence =
     distanceM != null && distanceM <= (clue.geofence_radius_m ?? 25);
 
-  // Show "Mark as arrived" override after a short delay (demo).
+  // Per PRD §6.5: the "Mark as arrived" override must not appear in
+  // <2 minutes of dwell on a clue — no premature escape hatch.
   const [showOverride, setShowOverride] = useState(false);
   useEffect(() => {
     setShowOverride(false);
-    const t = setTimeout(() => setShowOverride(true), 8000);
+    const t = setTimeout(() => setShowOverride(true), 120_000);
     return () => clearTimeout(t);
   }, [clueKey]);
 
   // UI state
   const [mapOpen, setMapOpen] = useState(false);
   const [hintConfirmOpen, setHintConfirmOpen] = useState(false);
+  const [qrScannerOpen, setQRScannerOpen] = useState(false);
   const [unlockOverlay, setUnlockOverlay] = useState<"none" | "clue" | "tier">("none");
   const [photoPromptOpen, setPhotoPromptOpen] = useState(false);
   const [photoForClueId, setPhotoForClueId] = useState<string | null>(null);
   const [pendingNext, setPendingNext] = useState<Session | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isQRClue = clue.verification_type === "qr";
 
   const unlock = async (opts?: { manualOverride?: boolean; photoUrl?: string | null }) => {
     setBusy(true);
@@ -752,22 +757,40 @@ function ActiveView({
           </button>
         </div>
 
-        <button
-          className="btn primary"
-          onClick={() => unlock()}
-          disabled={busy || !withinGeofence}
-          style={{ width: "100%", minHeight: 52, fontSize: 15, opacity: !withinGeofence ? 0.6 : 1 }}
-        >
-          {withinGeofence ? "I'm here · verify ✓" : "Walking there →"}
-        </button>
-        <div className="muted small" style={{ textAlign: "center" }}>
-          {distanceM != null
-            ? `${Math.round(distanceM)} m from ${clue.location_name ?? "checkpoint"}`
-            : gpsErr
-              ? gpsErr
-              : "locating…"}
-        </div>
-        {showOverride && !withinGeofence ? (
+        {isQRClue ? (
+          <>
+            <button
+              className="btn primary"
+              onClick={() => setQRScannerOpen(true)}
+              disabled={busy}
+              style={{ width: "100%", minHeight: 52, fontSize: 15 }}
+            >
+              📷 Scan QR code
+            </button>
+            <div className="muted small" style={{ textAlign: "center" }}>
+              The laminated code is at {clue.location_name ?? "the checkpoint"}.
+            </div>
+          </>
+        ) : (
+          <>
+            <button
+              className="btn primary"
+              onClick={() => unlock()}
+              disabled={busy || !withinGeofence}
+              style={{ width: "100%", minHeight: 52, fontSize: 15, opacity: !withinGeofence ? 0.6 : 1 }}
+            >
+              {withinGeofence ? "I'm here · verify ✓" : "Walking there →"}
+            </button>
+            <div className="muted small" style={{ textAlign: "center" }}>
+              {distanceM != null
+                ? `${Math.round(distanceM)} m from ${clue.location_name ?? "checkpoint"}`
+                : gpsErr
+                  ? gpsErr
+                  : "locating…"}
+            </div>
+          </>
+        )}
+        {showOverride && (isQRClue || !withinGeofence) ? (
           <button
             className="btn ghost"
             onClick={() => unlock({ manualOverride: true })}
@@ -799,6 +822,19 @@ function ActiveView({
 
       {/* MAP DRAWER */}
       {mapOpen ? <MapDrawer clue={clue} distanceM={distanceM} accuracy={coords?.accuracy ?? null} onClose={() => setMapOpen(false)} /> : null}
+
+      {/* QR SCANNER */}
+      {qrScannerOpen && isQRClue && clue.qr_code_payload ? (
+        <QRScanner
+          expectedPayload={clue.qr_code_payload}
+          locationName={clue.location_name ?? null}
+          onClose={() => setQRScannerOpen(false)}
+          onMatch={() => {
+            setQRScannerOpen(false);
+            unlock();
+          }}
+        />
+      ) : null}
 
       {/* HINT CONFIRM */}
       {hintConfirmOpen ? (
