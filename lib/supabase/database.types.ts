@@ -249,6 +249,90 @@ export type Database = {
         };
         Relationships: [];
       };
+      mvp_games: {
+        Row: {
+          hardcoded_start_location: string;
+          hunt_id: string;
+          id: string;
+          started_at: string;
+          status: string;
+        };
+        Insert: {
+          hardcoded_start_location?: string;
+          hunt_id: string;
+          id?: string;
+          started_at?: string;
+          status?: string;
+        };
+        Update: {
+          hardcoded_start_location?: string;
+          hunt_id?: string;
+          id?: string;
+          started_at?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      mvp_hunts: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          status: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          status?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      mvp_players: {
+        Row: {
+          awaiting_walk_ack: boolean;
+          completed_at: string | null;
+          created_at: string;
+          game_id: string;
+          id: string;
+          joined_at: string;
+          name: string;
+          started_at: string | null;
+          total_time_seconds: number | null;
+        };
+        Insert: {
+          awaiting_walk_ack?: boolean;
+          completed_at?: string | null;
+          created_at?: string;
+          game_id: string;
+          id?: string;
+          joined_at?: string;
+          name: string;
+          started_at?: string | null;
+          total_time_seconds?: number | null;
+        };
+        Update: {
+          awaiting_walk_ack?: boolean;
+          completed_at?: string | null;
+          created_at?: string;
+          game_id?: string;
+          id?: string;
+          joined_at?: string;
+          name?: string;
+          started_at?: string | null;
+          total_time_seconds?: number | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -291,6 +375,55 @@ export type Database = {
           p_session_id: string;
         };
         Returns: Database["public"]["Tables"]["quest_hunt_sessions"]["Row"];
+      };
+      mvp_join_game: {
+        Args: {
+          p_game_id: string;
+          p_name: string;
+          p_existing_player_id?: string | null;
+        };
+        Returns: Json;
+      };
+      mvp_get_player_state: {
+        Args: { p_player_id: string };
+        Returns: Json;
+      };
+      mvp_confirm_start: {
+        Args: { p_player_id: string };
+        Returns: Json;
+      };
+      mvp_ack_walk: {
+        Args: { p_player_id: string };
+        Returns: Json;
+      };
+      mvp_submit_anagram: {
+        Args: {
+          p_player_id: string;
+          p_puzzle_id: string;
+          p_input: string;
+        };
+        Returns: Json;
+      };
+      mvp_submit_geocache_code: {
+        Args: {
+          p_player_id: string;
+          p_puzzle_id: string;
+          p_code: string;
+        };
+        Returns: Json;
+      };
+      mvp_record_photo: {
+        Args: {
+          p_player_id: string;
+          p_puzzle_id: string;
+          p_photo_url?: string | null;
+          p_skipped?: boolean;
+        };
+        Returns: Json;
+      };
+      mvp_complete_player: {
+        Args: { p_player_id: string };
+        Returns: Json;
       };
     };
     Enums: Record<string, never>;

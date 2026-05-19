@@ -1,7 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { QuestIcon } from "./quest/_components/QuestIcon";
+import { DEMO_GAME_ID } from "@/lib/mvp/constants";
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ game?: string }>;
+}) {
+  const { game } = await searchParams;
+  if (game?.trim()) {
+    redirect(`/join?game=${encodeURIComponent(game.trim())}`);
+  }
   return (
     <main className="min-h-screen flex flex-col bg-[#f7f1e3] text-[#1a1a22]">
       <nav className="w-full border-b border-[#d8d1bf]">
@@ -44,11 +54,17 @@ export default function Home() {
         </p>
         <div className="flex gap-3 flex-wrap justify-center pt-2">
           <Link
-            href="/quest/demo"
+            href={`/join?game=${DEMO_GAME_ID}`}
             className="rounded-full bg-[#ef5b3a] text-white px-6 py-3 font-semibold hover:opacity-90 inline-flex items-center gap-2"
           >
             <QuestIcon name="play" size={14} />
-            Play the demo
+            Join pitch hunt
+          </Link>
+          <Link
+            href="/quest/demo"
+            className="rounded-full border-2 border-[#1a1a22] text-[#1a1a22] px-6 py-3 font-semibold hover:bg-[#1a1a22] hover:text-[#fbf7ec] inline-flex items-center gap-2"
+          >
+            Team demo (GPS)
           </Link>
           <Link
             href="/quest"
@@ -61,11 +77,19 @@ export default function Home() {
 
       <section className="w-full max-w-6xl mx-auto px-5 pb-24 grid gap-6 grid-cols-1 sm:grid-cols-3">
         <RouteCard
-          href="/quest/demo"
-          tag="LIVE · SUPABASE"
-          title="Playable demo"
+          href={`/join?game=${DEMO_GAME_ID}`}
+          tag="PITCH · KAHOOT"
+          title="Pitch hunt (MVP)"
           accent="#ef5b3a"
-          description="Sign up, create a team, share the invite code, race the clue loop with real GPS verification and a live leaderboard."
+          description="Scan the kickoff QR, enter your name, solve two puzzles, optional selfie — individual leaderboard updates live."
+          cta="Join pitch hunt →"
+        />
+        <RouteCard
+          href="/quest/demo"
+          tag="LIVE · TEAMS"
+          title="Team GPS demo"
+          accent="#3a6ef0"
+          description="Create a team, share an invite code, race clues with GPS verification and a live team leaderboard."
           cta="Play UNSW 101 →"
         />
         <RouteCard
