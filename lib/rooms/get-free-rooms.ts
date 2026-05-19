@@ -52,7 +52,10 @@ export async function getFreeRooms(
       usage: params.usage,
       duration: params.duration,
     }),
-    deps.readEnrichments().catch(() => [] as EnrichmentRow[]),
+    deps.readEnrichments().catch((err) => {
+      console.warn("[getFreeRooms] readEnrichments failed; returning []", err);
+      return [] as EnrichmentRow[];
+    }),
   ]);
 
   const buildingById = new Map(buildings.map((b) => [b.id, b]));
