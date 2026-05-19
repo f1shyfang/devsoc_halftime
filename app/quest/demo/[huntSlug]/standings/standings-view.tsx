@@ -1,0 +1,170 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { Phone } from "../../../_components/Phone";
+
+type SessionRow = {
+  id: string;
+  team_id: string;
+  team_name: string;
+  state: string;
+  current_tier: number;
+  current_sequence: number;
+  started_at: string | null;
+  completed_at: string | null;
+  hint_penalty_seconds: number;
+  total_time_seconds: number | null;
+};
+
+function elapsedSecondsFor(s: SessionRow, nowMs: number) {
+  if (s.state === "completed" && s.total_time_seconds != null) return s.total_time_seconds;
+  if (s.state === "in_progress" && s.started_at) {
+    return Math.floor((nowMs - new Date(s.started_at).getTime()) / 1000) + (s.hint_penalty_seconds ?? 0);
+  }
+  return 0;
+}
+
+function fmt(sec: number) {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+}
+
+function initials(name: string) {
+  return name.replace(/^team\s+/i, "").slice(0, 2).toUpperCase();
+}
+
+const AV_COLORS = ["#ef5b3a", "#c9f558", "#1a1a22", "#3a6ef0", "#a64bd3", "#1a8c5a"];
+
+export function StandingsView({
+  huntId,
+  huntName,
+  myTeamId,
+  initialSessions,
+  totalClues,
+}: {
+  huntId: string;
+  huntName: string;
+  myTeamId: string | null;
+  initialSessions: SessionRow[];
+  totalClues: number;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [sessions, setSessions] = useState<SessionRow[]>(initialSessions);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`hunt-leaderboard:${huntId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "quest_hunt_sessions", filter: `hunt_id=eq.${huntId}` },
+        async () => {
+          const { data } = await supabase
+            .from("quest_hunt_sessions")
+            .select("*, quest_teams!inner(id, name)")
+            .eq("hunt_id", huntId);
+          if (data) {
+            setSessions(
+              data.map((s) => ({
+                ...s,
+                team_name: (s.quest_teams as unknown as { name: string }).name,
+              })) as SessionRow[],
+            );
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, huntId]);
+
+  // Sort: completed first by total_time, then in_progress by clues-unlocked desc + elapsed asc, lobby last.
+  const ranked = useMemo(() => {
+    const enriched = sessions.map((s) => ({
+      ...s,
+      unlocked: (s.current_tier - 1) * 99 + (s.current_sequence - 1), // simple ordering signal
+      progressLabel: `T${s.current_tier} · C${s.current_sequence}`,
+      elapsed: elapsedSecondsFor(s, now),
+    }));
+    enriched.sort((a, b) => {
+      const aDone = a.state === "completed" ? 0 : 1;
+      const bDone = b.state === "completed" ? 0 : 1;
+      if (aDone !== bDone) return aDone - bDone;
+      if (a.state === "completed" && b.state === "completed") {
+        return (a.total_time_seconds ?? 0) - (b.total_time_seconds ?? 0);
+      }
+      if (b.unlocked !== a.unlocked) return b.unlocked - a.unlocked;
+      return a.elapsed - b.elapsed;
+    });
+    return enriched;
+  }, [sessions, now]);
+
+  return (
+    <Phone>
+      <div className="body">
+        <div className="pad">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="hand" style={{ fontSize: 26 }}>Standings</div>
+            <div className="pill ghost">updates live</div>
+          </div>
+          <div className="muted small" style={{ marginTop: 4 }}>
+            {huntName} · {sessions.length} {sessions.length === 1 ? "team" : "teams"}
+          </div>
+        </div>
+        <div className="pad" style={{ paddingTop: 0, flex: 1, overflow: "auto" }}>
+          <div className="card" style={{ padding: "6px 4px" }}>
+            {ranked.length === 0 ? (
+              <div className="p muted" style={{ padding: 12 }}>
+                No teams yet. Be the first to start the hunt.
+              </div>
+            ) : (
+              ranked.map((s, i) => {
+                const isMe = s.team_id === myTeamId;
+                const c = AV_COLORS[i % AV_COLORS.length];
+                return (
+                  <div className={`lb ${isMe ? "me" : ""}`} key={s.id}>
+                    <div className="rank">{i + 1}</div>
+                    <div
+                      className="av"
+                      style={{ background: c, color: c === "#c9f558" ? "var(--ink)" : "white" }}
+                    >
+                      {initials(s.team_name)}
+                    </div>
+                    <div className="nm">
+                      {isMe ? `You · ${s.team_name}` : s.team_name}
+                    </div>
+                    <div className="pr">
+                      {s.state === "completed"
+                        ? "done"
+                        : s.state === "lobby"
+                          ? "lobby"
+                          : s.progressLabel}
+                    </div>
+                    <div className="tm">{fmt(s.elapsed)}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="muted small" style={{ marginTop: 8, textAlign: "center" }}>
+            {totalClues} clues total · sorted by progress, then time
+          </div>
+        </div>
+        <div className="tab">
+          <div className="ti"><div className="ic" />Hunt</div>
+          <div className="ti on"><div className="ic" />Standings</div>
+          <div className="ti"><div className="ic" />Reel</div>
+        </div>
+      </div>
+    </Phone>
+  );
+}

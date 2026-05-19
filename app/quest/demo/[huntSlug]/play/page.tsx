@@ -1,0 +1,103 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { PlayShell } from "./play-shell";
+import type { Hunt, Clue, Session, TeamSummary, MemberRow, ProgressRow } from "./types";
+
+export const metadata = { title: "UNSW Quest · Play" };
+
+export default async function PlayPage({
+  params,
+}: {
+  params: Promise<{ huntSlug: string }>;
+}) {
+  const { huntSlug } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(`/auth/login?next=/quest/demo/${huntSlug}/play`);
+
+  const { data: hunt } = await supabase
+    .from("quest_hunts")
+    .select("*")
+    .eq("slug", huntSlug)
+    .maybeSingle();
+  if (!hunt) notFound();
+
+  // Find this user's team for the hunt.
+  const { data: memberships } = await supabase
+    .from("quest_team_members")
+    .select("team_id, quest_teams!inner(id, hunt_id, name, invite_code, leader_user_id)")
+    .eq("user_id", user.id);
+  const myTeam = (memberships ?? [])
+    .map((m) => m.quest_teams as unknown as TeamSummary)
+    .find((t) => t.hunt_id === hunt.id);
+  if (!myTeam) {
+    redirect(`/quest/demo/${huntSlug}`);
+  }
+
+  const [{ data: session }, { data: members }, { data: clues }] = await Promise.all([
+    supabase
+      .from("quest_hunt_sessions")
+      .select("*")
+      .eq("team_id", myTeam.id)
+      .maybeSingle(),
+    supabase
+      .from("quest_team_members")
+      .select("user_id, joined_at, quest_profiles:user_id(display_name, avatar_color)")
+      .eq("team_id", myTeam.id),
+    supabase
+      .from("quest_clues")
+      .select("*")
+      .eq("hunt_id", hunt.id)
+      .order("tier", { ascending: true })
+      .order("sequence_in_tier", { ascending: true }),
+  ]);
+
+  if (!session) {
+    redirect(`/quest/demo/${huntSlug}`);
+  }
+
+  const { data: progress } = await supabase
+    .from("quest_clue_progress")
+    .select("*")
+    .eq("hunt_session_id", session.id);
+
+  if (session.state === "completed") {
+    redirect(`/quest/demo/${huntSlug}/finale`);
+  }
+
+  return (
+    <PlayShell
+      hunt={hunt as Hunt}
+      session={session as Session}
+      team={myTeam}
+      currentUserId={user.id}
+      members={
+        ((members ?? []) as unknown as Array<{
+          user_id: string;
+          joined_at: string;
+          quest_profiles: { display_name: string | null; avatar_color: string | null } | null;
+        }>).map((m) => ({
+          user_id: m.user_id,
+          joined_at: m.joined_at,
+          display_name: m.quest_profiles?.display_name ?? "Player",
+          avatar_color: m.quest_profiles?.avatar_color ?? "#ef5b3a",
+        })) as MemberRow[]
+      }
+      clues={(clues ?? []) as Clue[]}
+      initialProgress={(progress ?? []) as ProgressRow[]}
+      headerSlot={
+        <div className="crumbs" style={{ marginBottom: 8 }}>
+          <Link href="/quest/demo">demo</Link>
+          <span className="sep">/</span>
+          <Link href={`/quest/demo/${huntSlug}`}>{hunt.slug}</Link>
+          <span className="sep">/</span>
+          <span>play</span>
+        </div>
+      }
+    />
+  );
+}
