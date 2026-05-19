@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getDeviceIdServer } from "@/lib/device-id";
+import { getDeviceIdServer } from "@/lib/device-id.server";
 import { Crumbs } from "../../_components/Crumbs";
 
 export const metadata = { title: "UNSW Quest · Finale" };

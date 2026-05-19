@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getDeviceIdServer } from "@/lib/device-id";
+import { getDeviceIdServer } from "@/lib/device-id.server";
 import { TeamGate } from "./team-gate";
 
 export const metadata = { title: "UNSW Quest · Hunt detail" };

@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getDeviceIdServer } from "@/lib/device-id";
+import { getDeviceIdServer } from "@/lib/device-id.server";
 import { PlayShell } from "./play-shell";
 import { Crumbs } from "../../_components/Crumbs";
 import type { Hunt, Clue, Session, TeamSummary, MemberRow, ProgressRow } from "./types";

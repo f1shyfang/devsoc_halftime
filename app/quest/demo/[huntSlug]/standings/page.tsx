@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getDeviceIdServer } from "@/lib/device-id";
+import { getDeviceIdServer } from "@/lib/device-id.server";
 import { StandingsView } from "./standings-view";
 import { Crumbs } from "../../_components/Crumbs";
 

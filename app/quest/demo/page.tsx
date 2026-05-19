@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getDeviceIdServer } from "@/lib/device-id";
+import { getDeviceIdServer } from "@/lib/device-id.server";
 
 export const metadata = { title: "UNSW Quest · Pick a hunt" };
 
