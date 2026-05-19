@@ -1,4 +1,3 @@
-import { DeployButton } from "@/components/deploy-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
 import { AuthButton } from "@/components/auth-button";
 import { Hero } from "@/components/hero";
@@ -14,20 +13,30 @@ export default function Home() {
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
         <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
-            <div className="flex gap-5 items-center font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
+          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm gap-4">
+            <Link href="/" className="font-semibold whitespace-nowrap">
+              UNSW Quest
+            </Link>
+            <div className="flex items-center gap-4 text-foreground/70">
+              <Link href="/quest" className="hover:text-foreground">Storyboard</Link>
+              <Link href="/quest/flow" className="hover:text-foreground hidden sm:inline">Flow</Link>
+              <Link href="/quest/play" className="hover:text-foreground hidden sm:inline">Walkthrough</Link>
+              <Link
+                href="/quest/demo"
+                className="rounded-full bg-foreground text-background px-3 py-1.5 font-semibold hover:opacity-90"
+              >
+                ▶ Play
+              </Link>
             </div>
-            {!hasEnvVars ? (
-              <EnvVarWarning />
-            ) : (
-              <Suspense>
-                <AuthButton />
-              </Suspense>
-            )}
+            <div className="flex items-center gap-2">
+              {!hasEnvVars ? (
+                <EnvVarWarning />
+              ) : (
+                <Suspense>
+                  <AuthButton />
+                </Suspense>
+              )}
+            </div>
           </div>
         </nav>
         <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
