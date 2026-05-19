@@ -28,13 +28,22 @@ export default async function PlayPage({
 
   // Find this user's team for the hunt. Two-step lookup so we don't hit
   // RLS gotchas on the implicit team_members → teams join.
+  const logPgErr = (label: string, err: unknown) => {
+    if (!err) return;
+    const e = err as { message?: string; code?: string; details?: string; hint?: string };
+    // PostgrestError fields aren't enumerable; pull them out explicitly.
+    console.error(label, {
+      message: e.message,
+      code: e.code,
+      details: e.details,
+      hint: e.hint,
+    });
+  };
   const { data: myMemberships, error: memErr } = await supabase
     .from("quest_team_members")
     .select("team_id")
     .eq("user_id", user.id);
-  if (memErr) {
-    console.error("quest play: memberships fetch failed", memErr);
-  }
+  logPgErr("quest play: memberships fetch failed", memErr);
   const teamIds = (myMemberships ?? []).map((m) => m.team_id);
   if (teamIds.length === 0) {
     redirect(`/quest/demo/${huntSlug}`);
@@ -44,9 +53,7 @@ export default async function PlayPage({
     .select("id, hunt_id, name, invite_code, leader_user_id")
     .in("id", teamIds)
     .eq("hunt_id", hunt.id);
-  if (teamErr) {
-    console.error("quest play: teams fetch failed", teamErr);
-  }
+  logPgErr("quest play: teams fetch failed", teamErr);
   const myTeam = (candidateTeams ?? [])[0] as TeamSummary | undefined;
   if (!myTeam) {
     redirect(`/quest/demo/${huntSlug}`);
