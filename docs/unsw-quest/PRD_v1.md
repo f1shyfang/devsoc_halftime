@@ -254,6 +254,10 @@ On Tier 3 final-clue unlock:
 
 ## 7. Non-Functional Requirements
 
+### 7.0 Platform & Form Factor
+
+UNSW Quest is **mobile-first by design.** All UI/UX is built for a phone in portrait orientation as the primary form factor. Tablet, desktop, and landscape layouts are out of scope for v1 — they may render but are not designed or tested against.
+
 ### 7.1 Performance
 
 - App launch to home screen: <2 seconds on iPhone 12 / Pixel 6 or equivalent.
