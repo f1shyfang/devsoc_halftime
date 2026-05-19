@@ -13,7 +13,9 @@ export type IconName =
   | "share"
   | "stopwatch"
   | "sparkles"
-  | "medal";
+  | "medal"
+  | "play"
+  | "check";
 
 type Props = {
   name: IconName;
@@ -140,6 +142,16 @@ const PATHS: Record<IconName, (stroke: number) => React.ReactNode> = {
       <path d="M12 14 L14.6 13.4" />
     </>
   ),
+  play: () => (
+    <>
+      <path d="M7.4 4.4 L18.6 11.7 Q19 12 18.6 12.3 L7.4 19.6 Q7 19.8 7 19.3 L7 4.7 Q7 4.2 7.4 4.4 Z" fill="currentColor" />
+    </>
+  ),
+  check: () => (
+    <>
+      <path d="M4.6 12.6 L9.4 17.6 L19.4 6.4" />
+    </>
+  ),
   medal: () => (
     <>
       <path d="M8.4 3 L12 9.4 L15.6 3" />
@@ -208,6 +220,11 @@ const EMOJI_TO_ICON: Record<string, IconName> = {
   "🥈": "medal",
   "🥉": "medal",
   "🏆": "medal",
+  "▶": "play",
+  "▶️": "play",
+  "✓": "check",
+  "✔": "check",
+  "✔️": "check",
 };
 
 export function emojiToIcon(emoji: string | null | undefined, fallback: IconName = "map"): IconName {

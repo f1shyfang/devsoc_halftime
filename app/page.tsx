@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuestIcon } from "./quest/_components/QuestIcon";
 
 export default function Home() {
   return (
@@ -14,9 +15,10 @@ export default function Home() {
             <Link href="/quest/play" className="hover:text-foreground hidden sm:inline">Walkthrough</Link>
             <Link
               href="/quest/demo"
-              className="rounded-full bg-[#ef5b3a] text-white px-3 py-1.5 font-semibold hover:opacity-90"
+              className="rounded-full bg-[#ef5b3a] text-white px-3 py-1.5 font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
             >
-              ▶ Play
+              <QuestIcon name="play" size={12} />
+              Play
             </Link>
           </div>
         </div>
@@ -45,7 +47,8 @@ export default function Home() {
             href="/quest/demo"
             className="rounded-full bg-[#ef5b3a] text-white px-6 py-3 font-semibold hover:opacity-90 inline-flex items-center gap-2"
           >
-            ▶ Play the demo
+            <QuestIcon name="play" size={14} />
+            Play the demo
           </Link>
           <Link
             href="/quest"

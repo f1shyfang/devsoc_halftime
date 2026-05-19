@@ -7,7 +7,11 @@ export function PhotoModal() {
       <div className="body" style={{ position: "relative" }}>
         <div style={{ opacity: 0.35, display: "flex", flexDirection: "column", height: "100%" }}>
           <div className="pad"><div className="label">Clue unlocked</div></div>
-          <div className="pad"><div className="hand" style={{ fontSize: 26 }}>Physics Lawn ✓</div></div>
+          <div className="pad">
+            <div className="hand row gap-2" style={{ fontSize: 26, alignItems: "center" }}>
+              Physics Lawn <QuestIcon name="check" size={20} style={{ color: "var(--good)" }} />
+            </div>
+          </div>
         </div>
         <div
           style={{
@@ -122,8 +126,8 @@ export function PhotoInline() {
           </div>
         </div>
         <div className="pad" style={{ paddingTop: 6 }}>
-          <div className="hand" style={{ fontSize: 28, color: "var(--good)", lineHeight: 1 }}>
-            Physics Lawn ✓
+          <div className="hand row gap-2" style={{ fontSize: 28, color: "var(--good)", lineHeight: 1, alignItems: "center" }}>
+            Physics Lawn <QuestIcon name="check" size={22} />
           </div>
           <div className="muted small" style={{ marginTop: 4 }}>unlocked 12 seconds ago</div>
         </div>

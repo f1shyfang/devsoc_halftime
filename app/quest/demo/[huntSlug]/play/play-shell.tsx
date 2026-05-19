@@ -288,20 +288,32 @@ function LobbyView({
         </button>
         <div className="row gap-2" style={{ marginTop: 14 }}>
           <button
-            className="btn primary grow"
+            className="btn primary grow row gap-1"
             onClick={copyCode}
             type="button"
-            style={{ minHeight: 44 }}
+            style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
           >
-            {copied === "code" ? "✓ Copied" : "Copy code"}
+            {copied === "code" ? (
+              <>
+                <QuestIcon name="check" size={14} /> Copied
+              </>
+            ) : (
+              "Copy code"
+            )}
           </button>
           <button
-            className="btn ink-btn grow"
+            className="btn ink-btn grow row gap-1"
             onClick={share}
             type="button"
-            style={{ minHeight: 44 }}
+            style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
           >
-            {copied === "link" ? "✓ Link copied" : "Share link"}
+            {copied === "link" ? (
+              <>
+                <QuestIcon name="check" size={14} /> Link copied
+              </>
+            ) : (
+              "Share link"
+            )}
           </button>
         </div>
         <div className="muted small" style={{ textAlign: "center", marginTop: 10 }}>
@@ -311,25 +323,8 @@ function LobbyView({
 
       {/* Team grid */}
       <div style={{ width: "100%" }}>
-        <div
-          className="row"
-          style={{ justifyContent: "space-between", marginBottom: 8 }}
-        >
-          <div className="label">TEAM · {members.length} / 6</div>
-          <div className="muted small" style={{ fontFamily: "var(--mono)" }}>
-            <span
-              style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "var(--good)",
-                marginRight: 6,
-                boxShadow: "0 0 0 3px rgba(47,158,107,0.18)",
-              }}
-            />
-            live
-          </div>
+        <div className="label" style={{ marginBottom: 8 }}>
+          TEAM · {members.length} / 6
         </div>
         <div
           style={{
@@ -781,12 +776,25 @@ function ActiveView({
         ) : (
           <>
             <button
-              className="btn primary"
+              className="btn primary row gap-2"
               onClick={() => unlock()}
               disabled={busy || !withinGeofence}
-              style={{ width: "100%", minHeight: 52, fontSize: 15, opacity: !withinGeofence ? 0.6 : 1 }}
+              style={{
+                width: "100%",
+                minHeight: 52,
+                fontSize: 15,
+                opacity: !withinGeofence ? 0.6 : 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              {withinGeofence ? "I'm here · verify ✓" : "Walking there →"}
+              {withinGeofence ? (
+                <>
+                  I&apos;m here · verify <QuestIcon name="check" size={16} />
+                </>
+              ) : (
+                "Walking there →"
+              )}
             </button>
             <div className="muted small" style={{ textAlign: "center" }}>
               {distanceM != null

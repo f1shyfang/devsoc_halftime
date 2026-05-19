@@ -154,10 +154,31 @@ function buildCard(data: CardData): any {
           alignItems: "center",
           justifyContent: "center",
           background: LIME,
-          fontSize: 220,
         },
       },
-      "🗺️",
+      // Hand-drawn map glyph mirroring app/quest/_components/QuestIcon.tsx
+      // (folded paper map with a pin). Inline SVG since satori can't render
+      // emoji without bundling a font with emoji glyphs.
+      h(
+        "svg",
+        {
+          width: 320,
+          height: 320,
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: INK,
+          strokeWidth: 1.4,
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+        },
+        h("path", {
+          d: "M3.4 6.4 Q3.2 5.9 3.8 5.7 L8.9 4.1 L15.1 5.9 L20.3 4.2 Q20.9 4.1 21 4.7 L21 17.4 Q21 18 20.4 18.2 L15.1 19.9 L8.9 18.1 L3.7 19.9 Q3 20 3.4 19.4 Z",
+        }),
+        h("path", { d: "M9 4.3 L9.2 18.2" }),
+        h("path", { d: "M15 6 L14.9 19.8" }),
+        h("circle", { cx: 6.2, cy: 9.8, r: 0.9, fill: INK, stroke: "none" }),
+        h("path", { d: "M6.2 10.5 L6.2 13.5" }),
+      ),
     );
 
   return h(

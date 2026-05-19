@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { stages } from "./_registry";
+import { QuestIcon } from "./_components/QuestIcon";
 
 export default function QuestStoryboardPage() {
   return (
@@ -16,10 +17,11 @@ export default function QuestStoryboardPage() {
           <Link href="/quest/play" style={{ borderBottom: "1px dashed currentColor" }}>play view →</Link>
           <Link
             href="/quest/demo"
-            className="pill acc-pill"
-            style={{ textDecoration: "none" }}
+            className="pill acc-pill row gap-1"
+            style={{ textDecoration: "none", alignItems: "center" }}
           >
-            ▶ playable demo
+            <QuestIcon name="play" size={11} />
+            playable demo
           </Link>
         </div>
       </header>
