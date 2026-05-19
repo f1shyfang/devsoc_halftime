@@ -95,7 +95,7 @@ export default async function FinalePage({
   const totalSec = session.total_time_seconds ?? 0;
   const rankSuffix = rank === 1 ? "st" : rank === 2 ? "nd" : rank === 3 ? "rd" : "th";
   const rankLabel = rank > 0 ? `${rank}${rankSuffix}` : "";
-  const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "🏁";
+  const medal: "medal" | "flag" = rank >= 1 && rank <= 3 ? "medal" : "flag";
 
   return (
     <div className="viewer" style={{ gap: 16 }}>

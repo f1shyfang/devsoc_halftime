@@ -1,4 +1,5 @@
 import { Phone } from "../_components/Phone";
+import { QuestIcon } from "../_components/QuestIcon";
 
 export function FinaleStats() {
   return (
@@ -27,7 +28,9 @@ export function FinaleStats() {
             58:24
           </div>
           <div className="row" style={{ justifyContent: "center", gap: 4, marginTop: 4 }}>
-            <span className="pill acc-pill">2nd of 7 🥈</span>
+            <span className="pill acc-pill row gap-1" style={{ alignItems: "center" }}>
+              2nd of 7 <QuestIcon name="medal" size={14} />
+            </span>
           </div>
         </div>
         <div className="pad" style={{ paddingTop: 14 }}>

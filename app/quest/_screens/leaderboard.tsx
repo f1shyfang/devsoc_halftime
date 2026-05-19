@@ -1,4 +1,5 @@
 import { Phone } from "../_components/Phone";
+import { QuestIcon } from "../_components/QuestIcon";
 
 export function LeaderboardBar() {
   return (
@@ -31,8 +32,12 @@ export function LeaderboardBar() {
         <div className="grow" />
         <div className="pad">
           <div className="row gap-2">
-            <div className="btn ghost"><span>💡</span> 2</div>
-            <div className="btn ghost"><span>🗺️</span></div>
+            <div className="btn ghost row gap-1" style={{ alignItems: "center" }}>
+              <QuestIcon name="bulb" size={14} /> 2
+            </div>
+            <div className="btn ghost" style={{ display: "inline-flex", alignItems: "center" }}>
+              <QuestIcon name="map" size={14} />
+            </div>
             <div className="btn primary grow">I&apos;m here</div>
           </div>
         </div>

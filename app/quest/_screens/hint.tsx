@@ -1,4 +1,5 @@
 import { Phone } from "../_components/Phone";
+import { QuestIcon } from "../_components/QuestIcon";
 
 export function HintModal() {
   return (
@@ -20,8 +21,8 @@ export function HintModal() {
           }}
         >
           <div className="card" style={{ width: "100%", background: "var(--paper)", padding: 18 }}>
-            <div className="row gap-2" style={{ marginBottom: 10 }}>
-              <span style={{ fontSize: 22 }}>💡</span>
+            <div className="row gap-2" style={{ marginBottom: 10, alignItems: "center" }}>
+              <QuestIcon name="bulb" size={22} style={{ color: "var(--accent)" }} />
               <div className="h2">Use a hint?</div>
             </div>
             <div className="p muted" style={{ marginBottom: 14 }}>
@@ -53,8 +54,8 @@ export function HintInline() {
         </div>
         <div className="pad" style={{ paddingTop: 14 }}>
           <div className="card tint">
-            <div className="row gap-2" style={{ marginBottom: 6 }}>
-              <span>💡</span>
+            <div className="row gap-2" style={{ marginBottom: 6, alignItems: "center" }}>
+              <QuestIcon name="bulb" size={16} style={{ color: "var(--accent)" }} />
               <div className="label" style={{ color: "var(--accent)" }}>Hint 1 of 2</div>
             </div>
             <div className="hand" style={{ fontSize: 18, lineHeight: 1.25 }}>
@@ -66,7 +67,9 @@ export function HintInline() {
         <div className="pad">
           <div className="row gap-2">
             <div className="btn ghost grow">Reveal hint 2 (+60s)</div>
-            <div className="btn ink-btn"><span>🗺️</span></div>
+            <div className="btn ink-btn" style={{ display: "inline-flex", alignItems: "center" }}>
+              <QuestIcon name="map" size={16} />
+            </div>
           </div>
         </div>
       </div>

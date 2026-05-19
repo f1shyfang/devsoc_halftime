@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { QuestIcon, type IconName } from "../../../_components/QuestIcon";
 
 type Photo = { url: string; prompt: string | null; location: string | null };
 
@@ -11,7 +12,7 @@ type Props = {
   rank: number;
   totalCompleted: number;
   rankLabel: string;
-  medal: string;
+  medal: IconName;
   hintsUsed: number;
   photosCount: number;
   overrides: number;
@@ -136,8 +137,9 @@ export function FinaleActions(props: Props) {
             {fmt(props.totalSec)}
           </div>
           <div className="row" style={{ justifyContent: "center", gap: 4, marginTop: 10 }}>
-            <span className="pill acc-pill" style={{ fontSize: 12 }}>
-              {props.rank > 0 ? `${props.rankLabel} of ${props.totalCompleted}` : "finished"} {props.medal}
+            <span className="pill acc-pill row gap-1" style={{ fontSize: 12, alignItems: "center" }}>
+              {props.rank > 0 ? `${props.rankLabel} of ${props.totalCompleted}` : "finished"}
+              <QuestIcon name={props.medal} size={14} />
             </span>
           </div>
         </div>
@@ -177,12 +179,19 @@ export function FinaleActions(props: Props) {
         }}
       >
         <button
-          className="btn primary"
+          className="btn primary row gap-2"
           onClick={share}
           disabled={sharing}
-          style={{ width: "100%", minHeight: 52, fontSize: 15 }}
+          style={{ width: "100%", minHeight: 52, fontSize: 15, justifyContent: "center", alignItems: "center" }}
         >
-          {sharing ? "Preparing…" : "📤 Share your results"}
+          {sharing ? (
+            "Preparing…"
+          ) : (
+            <>
+              <QuestIcon name="share" size={18} />
+              Share your results
+            </>
+          )}
         </button>
         {shareErr ? (
           <div className="p" style={{ color: "var(--bad)", textAlign: "center" }}>{shareErr}</div>

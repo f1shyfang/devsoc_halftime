@@ -1,4 +1,5 @@
 import { Phone } from "../_components/Phone";
+import { QuestIcon } from "../_components/QuestIcon";
 
 export function ClueText() {
   return (
@@ -19,8 +20,12 @@ export function ClueText() {
           <div className="label">The riddle</div>
           <div className="riddle lg">&ldquo;I hold thousands of worlds but never leave my shelf.&rdquo;</div>
           <div className="row gap-2" style={{ marginTop: "auto" }}>
-            <div className="btn ghost grow"><span>💡</span> Hint · 2 left</div>
-            <div className="btn ghost"><span>🗺️</span></div>
+            <div className="btn ghost grow row gap-2" style={{ alignItems: "center", justifyContent: "center" }}>
+              <QuestIcon name="bulb" size={16} /> Hint · 2 left
+            </div>
+            <div className="btn ghost" style={{ display: "inline-flex", alignItems: "center" }}>
+              <QuestIcon name="map" size={16} />
+            </div>
           </div>
           <div className="btn primary">Walking there →</div>
         </div>
@@ -58,10 +63,12 @@ export function ClueNotebook() {
             <div className="riddle">I hold thousands of worlds but never leave my shelf.</div>
             <div className="hr" />
             <div className="row" style={{ justifyContent: "space-between" }}>
-              <div className="hand" style={{ fontSize: 15 }}>
-                💡 hint <span className="acc">(+60s)</span>
+              <div className="hand row gap-1" style={{ fontSize: 15, alignItems: "center" }}>
+                <QuestIcon name="bulb" size={16} /> hint <span className="acc">(+60s)</span>
               </div>
-              <div className="hand" style={{ fontSize: 15 }}>🗺️ map</div>
+              <div className="hand row gap-1" style={{ fontSize: 15, alignItems: "center" }}>
+                <QuestIcon name="map" size={16} /> map
+              </div>
             </div>
             <div className="grow" />
             <div className="btn ink-btn">I think I&apos;m there →</div>
@@ -126,7 +133,9 @@ export function CluePeekMap() {
         </div>
         <div className="pad" style={{ paddingTop: 0 }}>
           <div className="row gap-2">
-            <div className="btn ghost"><span>💡</span></div>
+            <div className="btn ghost" style={{ display: "inline-flex", alignItems: "center" }}>
+              <QuestIcon name="bulb" size={16} />
+            </div>
             <div className="btn primary grow">I&apos;m here · verify</div>
           </div>
         </div>

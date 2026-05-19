@@ -9,6 +9,7 @@ import { getDeviceIdClient } from "@/lib/device-id";
 import type { Clue, Hunt, MemberRow, ProgressRow, Session, TeamSummary } from "./types";
 import { haversineM } from "./geo";
 import { QRScanner } from "./QRScanner";
+import { QuestIcon } from "../../../_components/QuestIcon";
 
 type Props = {
   hunt: Hunt;
@@ -645,8 +646,9 @@ function ActiveView({
           fontSize: 12,
         }}
       >
-        <div className="pill solid" style={{ flexShrink: 0, fontSize: 12 }}>
-          ⏱ {formatClock(elapsedSec)}
+        <div className="pill solid row gap-1" style={{ flexShrink: 0, fontSize: 12, alignItems: "center" }}>
+          <QuestIcon name="stopwatch" size={14} />
+          {formatClock(elapsedSec)}
         </div>
         <div className="muted small" style={{ fontSize: 11 }}>
           Tier {clue.tier} · Clue {overallSeq + 1} of {totalClues}
@@ -702,8 +704,8 @@ function ActiveView({
 
         {hintsRevealed >= 1 && hints[0] ? (
           <div className="card tint" style={{ padding: 12 }}>
-            <div className="row gap-2" style={{ marginBottom: 4 }}>
-              <span>💡</span>
+            <div className="row gap-2" style={{ marginBottom: 4, alignItems: "center" }}>
+              <QuestIcon name="bulb" size={16} style={{ color: "var(--accent)" }} />
               <div className="label" style={{ color: "var(--accent)" }}>Hint 1 of 2</div>
             </div>
             <div className="hand" style={{ fontSize: 18, lineHeight: 1.3 }}>{hints[0]}</div>
@@ -711,8 +713,8 @@ function ActiveView({
         ) : null}
         {hintsRevealed >= 2 && hints[1] ? (
           <div className="card tint" style={{ padding: 12 }}>
-            <div className="row gap-2" style={{ marginBottom: 4 }}>
-              <span>💡</span>
+            <div className="row gap-2" style={{ marginBottom: 4, alignItems: "center" }}>
+              <QuestIcon name="bulb" size={16} style={{ color: "var(--accent)" }} />
               <div className="label" style={{ color: "var(--accent)" }}>Hint 2 of 2</div>
             </div>
             <div className="hand" style={{ fontSize: 18, lineHeight: 1.3 }}>{hints[1]}</div>
@@ -723,7 +725,7 @@ function ActiveView({
         <div className="row" style={{ justifyContent: "space-between" }}>
           {hintsRevealed < 2 ? (
             <button
-              className="hand"
+              className="hand row gap-1"
               style={{
                 fontSize: 16,
                 color: "var(--ink)",
@@ -731,17 +733,19 @@ function ActiveView({
                 background: "none",
                 border: 0,
                 cursor: "pointer",
+                alignItems: "center",
               }}
               onClick={() => setHintConfirmOpen(true)}
               disabled={busy}
             >
-              💡 hint <span className="acc">(+60s)</span>
+              <QuestIcon name="bulb" size={18} />
+              hint <span className="acc">(+60s)</span>
             </button>
           ) : (
             <div className="hand muted" style={{ fontSize: 15 }}>no hints left</div>
           )}
           <button
-            className="hand"
+            className="hand row gap-1"
             style={{
               fontSize: 16,
               color: "var(--ink)",
@@ -749,23 +753,26 @@ function ActiveView({
               background: "none",
               border: 0,
               cursor: "pointer",
+              alignItems: "center",
             }}
             onClick={() => setMapOpen(true)}
             disabled={busy}
           >
-            🗺️ map
+            <QuestIcon name="map" size={18} />
+            map
           </button>
         </div>
 
         {isQRClue ? (
           <>
             <button
-              className="btn primary"
+              className="btn primary row gap-2"
               onClick={() => setQRScannerOpen(true)}
               disabled={busy}
-              style={{ width: "100%", minHeight: 52, fontSize: 15 }}
+              style={{ width: "100%", minHeight: 52, fontSize: 15, justifyContent: "center", alignItems: "center" }}
             >
-              📷 Scan QR code
+              <QuestIcon name="camera" size={20} />
+              Scan QR code
             </button>
             <div className="muted small" style={{ textAlign: "center" }}>
               The laminated code is at {clue.location_name ?? "the checkpoint"}.
@@ -1019,8 +1026,8 @@ function HintConfirm({
       }}
     >
       <div className="card" style={{ width: "min(100%, 360px)", padding: 18 }}>
-        <div className="row gap-2" style={{ marginBottom: 10 }}>
-          <span style={{ fontSize: 22 }}>💡</span>
+        <div className="row gap-2" style={{ marginBottom: 10, alignItems: "center" }}>
+          <QuestIcon name="bulb" size={22} style={{ color: "var(--accent)" }} />
           <div className="h2">Reveal hint {which}?</div>
         </div>
         <div className="p muted" style={{ marginBottom: 14 }}>
@@ -1176,8 +1183,14 @@ function PhotoPrompt({
         />
         <div className="row gap-2">
           <button className="btn ghost grow" onClick={onLater} disabled={busy}>Skip</button>
-          <button className="btn primary grow" onClick={() => fileRef.current?.click()} disabled={busy}>
-            <span>📷</span> {busy ? "Uploading…" : "Snap it"}
+          <button
+            className="btn primary grow row gap-2"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            style={{ alignItems: "center", justifyContent: "center" }}
+          >
+            <QuestIcon name="camera" size={18} />
+            {busy ? "Uploading…" : "Snap it"}
           </button>
         </div>
         <div className="muted small" style={{ textAlign: "center", marginTop: 8 }}>

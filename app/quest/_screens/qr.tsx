@@ -1,5 +1,6 @@
 import { Phone } from "../_components/Phone";
 import { Reticle } from "../_components/Reticle";
+import { QuestIcon } from "../_components/QuestIcon";
 
 export function QrFull() {
   return (
@@ -105,7 +106,9 @@ export function QrPrompt() {
             <div style={{ fontFamily: "var(--mono)", fontSize: 10 }}>[ sample QR illustration ]</div>
           </div>
           <div className="grow" />
-          <div className="btn primary"><span>📷</span> Open scanner</div>
+          <div className="btn primary row gap-2" style={{ alignItems: "center", justifyContent: "center" }}>
+            <QuestIcon name="camera" size={18} /> Open scanner
+          </div>
           <div className="btn ghost">Can&apos;t find it · use GPS</div>
         </div>
       </div>

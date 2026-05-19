@@ -1,22 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { QuestIcon, type IconName } from "../../_components/QuestIcon";
 
 const STORAGE_KEY = "quest_onboarded_v1";
 
-const SLIDES: Array<{ emoji: string; title: string; body: string }> = [
+const SLIDES: Array<{ icon: IconName; title: string; body: string }> = [
   {
-    emoji: "🏃‍♀️",
+    icon: "runner",
     title: "Race campus puzzles with friends",
     body: "UNSW Quest is a real-world treasure hunt. Form a team of 1–6 and solve riddles tied to actual places on campus.",
   },
   {
-    emoji: "🗺️",
+    icon: "map",
     title: "Solve, walk, unlock",
     body: "Each clue points to a building, statue, or hidden corner. Walk there together — your phone unlocks the next one when you arrive.",
   },
   {
-    emoji: "🏁",
+    icon: "flag",
     title: "Finish, share, brag",
     body: "Three tiers, one finale. Beat the clock, snap photo challenges, share your results card.",
   },
@@ -97,8 +98,8 @@ export function OnboardingCarousel() {
           </button>
         </div>
 
-        <div style={{ fontSize: 56, textAlign: "center", lineHeight: 1 }}>
-          {slide.emoji}
+        <div style={{ display: "flex", justifyContent: "center", color: "var(--accent)" }}>
+          <QuestIcon name={slide.icon} size={72} stroke={1.7} />
         </div>
         <div className="hand" style={{ fontSize: 28, lineHeight: 1.1, textAlign: "center" }}>
           {slide.title}

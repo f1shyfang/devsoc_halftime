@@ -1,4 +1,5 @@
 import { Phone } from "../_components/Phone";
+import { QuestIcon } from "../_components/QuestIcon";
 
 export function PhotoModal() {
   return (
@@ -29,7 +30,9 @@ export function PhotoModal() {
             <div className="ph-box photo" style={{ height: 120, marginBottom: 12 }} />
             <div className="row gap-2">
               <div className="btn ghost grow">Skip</div>
-              <div className="btn primary grow"><span>📷</span> Snap it</div>
+              <div className="btn primary grow row gap-2" style={{ alignItems: "center", justifyContent: "center" }}>
+                <QuestIcon name="camera" size={18} /> Snap it
+              </div>
             </div>
             <div className="muted small" style={{ textAlign: "center", marginTop: 8 }}>
               Skipping doesn&apos;t affect your time.
@@ -57,7 +60,7 @@ export function PhotoCamera() {
           </div>
         </div>
         <div className="pad" style={{ paddingTop: 0 }}>
-          <div className="hand" style={{ fontSize: 20 }}>Recreate the Einstein pose 🤪</div>
+          <div className="hand" style={{ fontSize: 20 }}>Recreate the Einstein pose</div>
         </div>
         <div
           className="grow ph-box photo"
@@ -97,10 +100,10 @@ export function PhotoCamera() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 14,
+              color: "rgba(255,248,236,0.85)",
             }}
           >
-            ⏱
+            <QuestIcon name="stopwatch" size={16} />
           </div>
         </div>
       </div>
@@ -126,8 +129,8 @@ export function PhotoInline() {
         </div>
         <div className="pad" style={{ paddingTop: 14 }}>
           <div className="card flat" style={{ borderStyle: "dashed" }}>
-            <div className="row gap-2">
-              <span style={{ fontSize: 18 }}>📷</span>
+            <div className="row gap-2" style={{ alignItems: "center" }}>
+              <QuestIcon name="camera" size={20} />
               <div className="grow">
                 <div className="h3">Optional · photo challenge</div>
                 <div className="muted small">Recreate the Einstein pose. Saves to your reel.</div>
@@ -135,7 +138,9 @@ export function PhotoInline() {
             </div>
             <div className="row gap-2" style={{ marginTop: 10 }}>
               <div className="btn ghost grow small" style={{ padding: 8 }}>Later</div>
-              <div className="btn primary grow"><span>📷</span> Now</div>
+              <div className="btn primary grow row gap-2" style={{ alignItems: "center", justifyContent: "center" }}>
+                <QuestIcon name="camera" size={16} /> Now
+              </div>
             </div>
           </div>
         </div>

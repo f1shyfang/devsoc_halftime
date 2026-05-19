@@ -1,4 +1,5 @@
 import { Phone } from "../_components/Phone";
+import { QuestIcon } from "../_components/QuestIcon";
 
 export function UnlockTakeover() {
   return (
@@ -155,7 +156,7 @@ export function UnlockBanner() {
             <div className="hand" style={{ fontSize: 18, lineHeight: 1 }}>Tier 2 unlocked!</div>
             <div className="mono small muted">Spread to Law / Arc / Physics</div>
           </div>
-          <div style={{ fontSize: 22 }}>🎉</div>
+          <QuestIcon name="sparkles" size={22} />
         </div>
         <div className="pad grow" style={{ paddingTop: 14 }}>
           <div className="label">Next clue</div>

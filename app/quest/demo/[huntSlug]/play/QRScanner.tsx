@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { QuestIcon } from "../../../_components/QuestIcon";
 
 type Props = {
   expectedPayload: string;
@@ -163,7 +164,9 @@ export function QRScanner({ expectedPayload, locationName, onMatch, onClose }: P
       >
         {cameraErr ? (
           <div style={{ padding: 24, textAlign: "center", maxWidth: 360 }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>📷</div>
+            <div style={{ marginBottom: 10, display: "flex", justifyContent: "center", opacity: 0.85 }}>
+              <QuestIcon name="camera" size={42} />
+            </div>
             <div className="hand" style={{ fontSize: 22, marginBottom: 8 }}>
               Camera unavailable
             </div>

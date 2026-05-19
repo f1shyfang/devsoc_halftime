@@ -3,13 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getDeviceIdServer } from "@/lib/device-id.server";
 import { DisplayNameSheet } from "./_components/DisplayNameSheet";
 import { OnboardingCarousel } from "./_components/OnboardingCarousel";
+import { QuestIcon, emojiToIcon, type IconName } from "../_components/QuestIcon";
 
 // "Coming Soon" cards — PRD §6.2 says the home should gesture at future
 // content. These are static placeholders, no DB rows.
-const COMING_SOON = [
-  { emoji: "🎃", name: "Horror Night", blurb: "Lights-off campus run, scariest corners, weekly drop near Halloween.", eta: "Spring '26" },
-  { emoji: "⚙️", name: "Engineering Mile", blurb: "Red Centre to Tyree, all the lab building easter eggs.", eta: "Sem 2" },
-  { emoji: "🧃", name: "Freshers Survival", blurb: "Free pizza spots, cheapest coffee, secret nap nooks. Soft-tutorial vibe.", eta: "O-Week '27" },
+const COMING_SOON: Array<{ icon: IconName; name: string; blurb: string; eta: string }> = [
+  { icon: "pumpkin", name: "Horror Night", blurb: "Lights-off campus run, scariest corners, weekly drop near Halloween.", eta: "Spring '26" },
+  { icon: "gear", name: "Engineering Mile", blurb: "Red Centre to Tyree, all the lab building easter eggs.", eta: "Sem 2" },
+  { icon: "juice", name: "Freshers Survival", blurb: "Free pizza spots, cheapest coffee, secret nap nooks. Soft-tutorial vibe.", eta: "O-Week '27" },
 ];
 
 export const metadata = { title: "UNSW Quest · Pick a hunt" };
@@ -109,8 +110,9 @@ export default async function DemoHomePage() {
           return (
             <div key={hunt.id} className="card" style={{ padding: 18 }}>
               <div className="row" style={{ justifyContent: "space-between" }}>
-                <div className="hand" style={{ fontSize: 28, lineHeight: 1 }}>
-                  {hunt.hero_emoji ?? "🗺️"} {hunt.name}
+                <div className="hand row gap-2" style={{ fontSize: 28, lineHeight: 1, alignItems: "center" }}>
+                  <QuestIcon name={emojiToIcon(hunt.hero_emoji, "map")} size={32} />
+                  {hunt.name}
                 </div>
                 <div className="pill mono">{hunt.duration_minutes ?? "—"}min</div>
               </div>
@@ -163,8 +165,9 @@ export default async function DemoHomePage() {
             }}
           >
             <div className="row" style={{ justifyContent: "space-between" }}>
-              <div className="hand" style={{ fontSize: 22, lineHeight: 1 }}>
-                {cs.emoji} {cs.name}
+              <div className="hand row gap-2" style={{ fontSize: 22, lineHeight: 1, alignItems: "center" }}>
+                <QuestIcon name={cs.icon} size={26} />
+                {cs.name}
               </div>
               <div className="pill ghost mono" style={{ fontSize: 11 }}>{cs.eta}</div>
             </div>
