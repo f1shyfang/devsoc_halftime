@@ -1,6 +1,10 @@
 import type { FoursquarePhoto, FoursquarePlace } from "./types";
 
-const DEFAULT_BASE_URL = "https://api.foursquare.com/v3";
+const DEFAULT_BASE_URL = "https://places-api.foursquare.com";
+// Pinned API version date. Foursquare's new Places API requires this header on every
+// request; bumping the date opts into newer response shapes. Keep in sync with the
+// shape this client parses.
+const DEFAULT_API_VERSION = "2025-06-17";
 
 export type FoursquareClient = {
   searchNearby: (args: {
@@ -15,6 +19,7 @@ export type FoursquareClient = {
 export type FoursquareClientOptions = {
   apiKey: string;
   baseUrl?: string;
+  apiVersion?: string;
   fetchImpl?: typeof fetch;
 };
 
@@ -35,7 +40,8 @@ export function createFoursquareClient(
   const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
   const fetchImpl = options.fetchImpl ?? fetch;
   const headers = {
-    Authorization: options.apiKey,
+    Authorization: `Bearer ${options.apiKey}`,
+    "X-Places-Api-Version": options.apiVersion ?? DEFAULT_API_VERSION,
     Accept: "application/json",
   } as const;
 

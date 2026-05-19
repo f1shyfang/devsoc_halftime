@@ -32,13 +32,14 @@ describe("FoursquareClient", () => {
     await client.searchNearby({ lat: -33.9, lng: 151.2, radiusMeters: 100 });
 
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toContain("/places/search");
+    expect(url).toContain("https://places-api.foursquare.com/places/search");
     expect(url).toContain("ll=-33.9%2C151.2");
     expect(url).toContain("radius=100");
     expect(url).toContain("limit=20");
     expect(url).toContain("fields=fsq_place_id%2Cname%2Clocation%2Cdistance");
     expect((init as RequestInit).headers).toMatchObject({
-      Authorization: "test-key",
+      Authorization: "Bearer test-key",
+      "X-Places-Api-Version": expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       Accept: "application/json",
     });
   });
