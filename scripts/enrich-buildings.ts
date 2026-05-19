@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 import {
-  buildPhotoUrl,
   createFoursquareClient,
   type FoursquareClient,
 } from "../lib/foursquare/client";
@@ -50,7 +49,7 @@ export type EnrichmentSupabase = {
 
 export type EnrichBuildingsDeps = {
   freerooms: Pick<FreeroomsClient, "getBuildings">;
-  foursquare: Pick<FoursquareClient, "searchNearby" | "getFirstPhoto">;
+  foursquare: Pick<FoursquareClient, "searchNearby">;
   supabase: EnrichmentSupabase;
   /** Inter-building delay; defaults to 200ms. Tests pass 0. */
   delayMs?: number;
@@ -129,7 +128,6 @@ export async function enrichBuildings(
           best.nameScore,
           best.distanceMeters,
         );
-        const photo = await deps.foursquare.getFirstPhoto(best.id);
         const fullCandidate = candidates.find(
           (c) => c.fsq_place_id === best.id,
         );
@@ -138,7 +136,9 @@ export async function enrichBuildings(
           building_id: b.id,
           building_name: b.name,
           foursquare_place_id: best.id,
-          photo_url: photo ? buildPhotoUrl(photo) : null,
+          // Photos intentionally skipped: Foursquare's /places/{id}/photos endpoint
+          // is now Premium-only and 429s on the free tier. Photo source TBD.
+          photo_url: null,
           address:
             fullCandidate?.location.formatted_address ??
             fullCandidate?.location.address ??
@@ -154,7 +154,7 @@ export async function enrichBuildings(
 
     summary[row.match_confidence]++;
     log.log(
-      `[${b.id}] ${b.name} → ${row.match_confidence} (${row.foursquare_place_id ?? "no_match"}, ${row.photo_url ? "photo: y" : "photo: n"})`,
+      `[${b.id}] ${b.name} → ${row.match_confidence} (${row.foursquare_place_id ?? "no_match"})`,
     );
 
     const { error: upsertErr } = await deps.supabase.upsertEnrichment(row);

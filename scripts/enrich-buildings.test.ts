@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { enrichBuildings, type EnrichBuildingsDeps } from "./enrich-buildings";
 import type { FreeroomsBuilding } from "@/lib/freerooms/types";
-import type { FoursquarePhoto, FoursquarePlace } from "@/lib/foursquare/types";
+import type { FoursquarePlace } from "@/lib/foursquare/types";
 
 function makeDeps(overrides: {
   buildings: FreeroomsBuilding[];
@@ -9,7 +9,6 @@ function makeDeps(overrides: {
     lat: number,
     lng: number,
   ) => FoursquarePlace[] | Promise<FoursquarePlace[]>;
-  photoByPlaceId?: (id: string) => FoursquarePhoto | null;
   existing?: Array<{ building_id: string; match_method: string | null }>;
 }): {
   deps: EnrichBuildingsDeps;
@@ -31,9 +30,6 @@ function makeDeps(overrides: {
             ? await overrides.candidatesByLatLng(lat, lng)
             : [];
         }),
-      getFirstPhoto: vi.fn().mockImplementation(async (id: string) => {
-        return overrides.photoByPlaceId ? overrides.photoByPlaceId(id) : null;
-      }),
     },
     supabase: {
       fetchExistingMethods: vi
@@ -96,10 +92,6 @@ describe("enrichBuildings", () => {
         }
         return [];
       },
-      photoByPlaceId: (id) =>
-        id === "fsq_ains"
-          ? { prefix: "https://photo/", suffix: "/img.jpg" }
-          : null,
     });
 
     const summary = await enrichBuildings(deps);
@@ -123,7 +115,7 @@ describe("enrichBuildings", () => {
       building_id: "K-J17",
       building_name: "Ainsworth",
       foursquare_place_id: "fsq_ains",
-      photo_url: "https://photo/original/img.jpg",
+      photo_url: null,
       address: "Anzac Pde, Kensington NSW",
       match_confidence: "high",
       match_method: "name_and_proximity",
@@ -188,7 +180,6 @@ describe("enrichBuildings", () => {
     await enrichBuildings(deps);
 
     expect(deps.foursquare.searchNearby).not.toHaveBeenCalled();
-    expect(deps.foursquare.getFirstPhoto).not.toHaveBeenCalled();
     expect(deps.supabase.upsertEnrichment).not.toHaveBeenCalled();
   });
 
