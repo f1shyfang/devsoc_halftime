@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Phone } from "../../../_components/Phone";
 import { Crumbs } from "../../_components/Crumbs";
 
 export const metadata = { title: "UNSW Quest · Finale" };
@@ -91,64 +90,83 @@ export default async function FinalePage({
         ]}
       />
 
-      <Phone>
-        <div className="body">
-          <div className="confetti">
-            <i style={{ top: "8%", left: "10%" }} />
-            <i style={{ top: "14%", left: "80%", background: "var(--lime)", transform: "rotate(-30deg)" }} />
-            <i style={{ top: "36%", left: "6%", background: "var(--ink)" }} />
+      <article
+        style={{
+          width: "min(100%, 560px)",
+          position: "relative",
+          background: "var(--paper)",
+          border: "var(--stroke) solid var(--ink)",
+          borderRadius: 24,
+          padding: "36px 28px 28px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          boxShadow: "6px 8px 0 rgba(26,26,34,0.08)",
+          overflow: "hidden",
+        }}
+      >
+        <div className="confetti">
+          <i style={{ top: "6%", left: "8%" }} />
+          <i style={{ top: "10%", left: "78%", background: "var(--lime)", transform: "rotate(-30deg)" }} />
+          <i style={{ top: "30%", left: "4%", background: "var(--ink)" }} />
+          <i style={{ top: "42%", left: "88%", background: "var(--lime)" }} />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div className="hand" style={{ fontSize: 18, color: "var(--accent)", letterSpacing: "0.06em" }}>
+            YOU FINISHED
           </div>
-          <div className="pad" style={{ textAlign: "center" }}>
-            <div className="hand" style={{ fontSize: 18, color: "var(--accent)" }}>YOU FINISHED</div>
-            <div className="hand" style={{ fontSize: 38, lineHeight: 1, marginTop: 2 }}>{hunt.name}</div>
+          <div className="hand" style={{ fontSize: 48, lineHeight: 1, marginTop: 4 }}>{hunt.name}</div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div className="mono small muted">Total time</div>
+          <div
+            style={{
+              fontFamily: "var(--mono)",
+              fontSize: 64,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              color: "var(--ink)",
+              lineHeight: 1,
+              marginTop: 4,
+            }}
+          >
+            {fmt(totalSec)}
           </div>
-          <div className="pad" style={{ paddingTop: 0, textAlign: "center" }}>
-            <div className="mono small muted">Total time</div>
-            <div
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: 42,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                color: "var(--ink)",
-              }}
-            >
-              {fmt(totalSec)}
-            </div>
-            <div className="row" style={{ justifyContent: "center", gap: 4, marginTop: 4 }}>
-              <span className="pill acc-pill">
-                {rank > 0 ? `${rank}${rankSuffix} of ${completed.length}` : "finished"} {medal}
-              </span>
-            </div>
-          </div>
-          <div className="pad" style={{ paddingTop: 14 }}>
-            <div className="row gap-2" style={{ textAlign: "center" }}>
-              <div className="card flat grow" style={{ padding: 10, textAlign: "center" }}>
-                <div className="hand" style={{ fontSize: 22 }}>{hintsUsed}</div>
-                <div className="xs">hints</div>
-              </div>
-              <div className="card flat grow" style={{ padding: 10, textAlign: "center" }}>
-                <div className="hand" style={{ fontSize: 22 }}>{photos}</div>
-                <div className="xs">photos</div>
-              </div>
-              <div className="card flat grow" style={{ padding: 10, textAlign: "center" }}>
-                <div className="hand" style={{ fontSize: 22 }}>{overrides}</div>
-                <div className="xs">overrides</div>
-              </div>
-            </div>
-          </div>
-          <div className="grow" />
-          <div className="pad">
-            <Link
-              href={`/quest/demo/${huntSlug}/standings`}
-              className="btn primary"
-              style={{ width: "100%", textDecoration: "none" }}
-            >
-              <span>↗</span> See full standings
-            </Link>
+          <div className="row" style={{ justifyContent: "center", gap: 4, marginTop: 10 }}>
+            <span className="pill acc-pill" style={{ fontSize: 12 }}>
+              {rank > 0 ? `${rank}${rankSuffix} of ${completed.length}` : "finished"} {medal}
+            </span>
           </div>
         </div>
-      </Phone>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: 10,
+            marginTop: 4,
+          }}
+        >
+          <div className="card flat" style={{ padding: 14, textAlign: "center" }}>
+            <div className="hand" style={{ fontSize: 28 }}>{hintsUsed}</div>
+            <div className="xs">hints</div>
+          </div>
+          <div className="card flat" style={{ padding: 14, textAlign: "center" }}>
+            <div className="hand" style={{ fontSize: 28 }}>{photos}</div>
+            <div className="xs">photos</div>
+          </div>
+          <div className="card flat" style={{ padding: 14, textAlign: "center" }}>
+            <div className="hand" style={{ fontSize: 28 }}>{overrides}</div>
+            <div className="xs">overrides</div>
+          </div>
+        </div>
+        <Link
+          href={`/quest/demo/${huntSlug}/standings`}
+          className="btn primary"
+          style={{ width: "100%", minHeight: 52, fontSize: 15, textDecoration: "none", marginTop: 6 }}
+        >
+          <span>↗</span> See full standings
+        </Link>
+      </article>
 
       <Link
         href="/quest/demo"

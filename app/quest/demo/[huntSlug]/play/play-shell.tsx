@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Phone } from "../../../_components/Phone";
 import type { Clue, Hunt, MemberRow, ProgressRow, Session, TeamSummary } from "./types";
 import { haversineM } from "./geo";
 
@@ -622,38 +621,41 @@ function ActiveView({
   );
 
   return (
-    <div className="viewer" style={{ gap: 16 }}>
+    <div className="viewer" style={{ gap: 18, width: "min(100%, 560px)" }}>
       {headerSlot}
 
-      {/* Sticky top bar */}
+      {/* Top status bar */}
       <div
         style={{
-          width: "min(100%, 420px)",
+          width: "100%",
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          gap: 10,
           fontFamily: "var(--mono)",
-          fontSize: 11,
+          fontSize: 12,
         }}
       >
-        <div className="pill solid" style={{ flexShrink: 0 }}>
-          {formatClock(elapsedSec)}
+        <div className="pill solid" style={{ flexShrink: 0, fontSize: 12 }}>
+          ⏱ {formatClock(elapsedSec)}
         </div>
-        <div className="muted small">
+        <div className="muted small" style={{ fontSize: 11 }}>
           Tier {clue.tier} · Clue {overallSeq + 1} of {totalClues}
         </div>
         <div style={{ flex: 1 }} />
         <Link
           href={`/quest/demo/${hunt.slug}/standings`}
           className="pill"
-          style={{ textDecoration: "none" }}
+          style={{ textDecoration: "none", fontSize: 11 }}
         >
           standings ↗
         </Link>
       </div>
 
       {/* Progress dots */}
-      <div className="dots" style={{ flexWrap: "wrap", gap: 6 }}>
+      <div
+        className="dots"
+        style={{ flexWrap: "wrap", gap: 6, width: "100%", justifyContent: "flex-start" }}
+      >
         {clues.map((c, i) => {
           const done = progress.some((p) => p.clue_id === c.id);
           const isNow = c.id === clue.id;
@@ -667,108 +669,110 @@ function ActiveView({
         })}
       </div>
 
-      {/* Notebook clue card */}
-      <Phone>
-        <div className="body">
-          <div className="pad" style={{ paddingBottom: 6 }}>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <div className="hand" style={{ fontSize: 20 }}>
-                Quest log · clue {overallSeq + 1}
-              </div>
-              <div className="pill solid mono">{formatClock(elapsedSec)}</div>
-            </div>
-          </div>
-          <div className="pad grow" style={{ paddingTop: 6 }}>
-            <div
-              className="card"
-              style={{
-                background: "#fffdf3",
-                padding: 18,
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-                borderRadius: 14,
-              }}
-            >
-              <div className="hand" style={{ fontSize: 14, color: "var(--quest-muted)" }}>
-                {clue.location_name ? `Find the ${clue.location_name}` : "Riddle me this…"}
-              </div>
-              <div className="riddle">{clue.body_text}</div>
-
-              {hintsRevealed >= 1 && hints[0] ? (
-                <div className="card tint" style={{ padding: 10 }}>
-                  <div className="row gap-2" style={{ marginBottom: 4 }}>
-                    <span>💡</span>
-                    <div className="label" style={{ color: "var(--accent)" }}>Hint 1 of 2</div>
-                  </div>
-                  <div className="hand" style={{ fontSize: 16, lineHeight: 1.25 }}>{hints[0]}</div>
-                </div>
-              ) : null}
-              {hintsRevealed >= 2 && hints[1] ? (
-                <div className="card tint" style={{ padding: 10 }}>
-                  <div className="row gap-2" style={{ marginBottom: 4 }}>
-                    <span>💡</span>
-                    <div className="label" style={{ color: "var(--accent)" }}>Hint 2 of 2</div>
-                  </div>
-                  <div className="hand" style={{ fontSize: 16, lineHeight: 1.25 }}>{hints[1]}</div>
-                </div>
-              ) : null}
-
-              <div className="hr" />
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                {hintsRevealed < 2 ? (
-                  <button
-                    className="hand"
-                    style={{ fontSize: 15, color: "var(--ink)", padding: 0, background: "none", border: 0, cursor: "pointer" }}
-                    onClick={() => setHintConfirmOpen(true)}
-                    disabled={busy}
-                  >
-                    💡 hint <span className="acc">(+60s)</span>
-                  </button>
-                ) : (
-                  <div className="hand muted" style={{ fontSize: 14 }}>no hints left</div>
-                )}
-                <button
-                  className="hand"
-                  style={{ fontSize: 15, color: "var(--ink)", padding: 0, background: "none", border: 0, cursor: "pointer" }}
-                  onClick={() => setMapOpen(true)}
-                  disabled={busy}
-                >
-                  🗺️ map
-                </button>
-              </div>
-              <div className="grow" />
-
-              <button
-                className="btn primary"
-                onClick={() => unlock()}
-                disabled={busy || !withinGeofence}
-                style={{ width: "100%", opacity: !withinGeofence ? 0.55 : 1 }}
-              >
-                {withinGeofence ? "I'm here · verify ✓" : "Walking there →"}
-              </button>
-              <div className="muted small" style={{ textAlign: "center" }}>
-                {distanceM != null
-                  ? `${Math.round(distanceM)} m from ${clue.location_name ?? "checkpoint"}`
-                  : gpsErr
-                    ? gpsErr
-                    : "locating…"}
-              </div>
-              {showOverride && !withinGeofence ? (
-                <button
-                  className="btn ghost"
-                  onClick={() => unlock({ manualOverride: true })}
-                  disabled={busy}
-                  style={{ width: "100%" }}
-                >
-                  Stuck? Mark as arrived
-                </button>
-              ) : null}
-            </div>
-          </div>
+      {/* Clue card — full-width web layout, no phone frame */}
+      <article
+        style={{
+          width: "100%",
+          background: "#fffdf3",
+          border: "var(--stroke) solid var(--ink)",
+          borderRadius: 20,
+          padding: "24px 22px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          boxShadow: "4px 6px 0 rgba(26,26,34,0.06)",
+        }}
+      >
+        <div className="hand" style={{ fontSize: 16, color: "var(--quest-muted)" }}>
+          {clue.location_name ? `Find the ${clue.location_name}` : "Riddle me this…"}
         </div>
-      </Phone>
+        <div className="riddle" style={{ fontSize: 28, lineHeight: 1.2 }}>
+          {clue.body_text}
+        </div>
+
+        {hintsRevealed >= 1 && hints[0] ? (
+          <div className="card tint" style={{ padding: 12 }}>
+            <div className="row gap-2" style={{ marginBottom: 4 }}>
+              <span>💡</span>
+              <div className="label" style={{ color: "var(--accent)" }}>Hint 1 of 2</div>
+            </div>
+            <div className="hand" style={{ fontSize: 18, lineHeight: 1.3 }}>{hints[0]}</div>
+          </div>
+        ) : null}
+        {hintsRevealed >= 2 && hints[1] ? (
+          <div className="card tint" style={{ padding: 12 }}>
+            <div className="row gap-2" style={{ marginBottom: 4 }}>
+              <span>💡</span>
+              <div className="label" style={{ color: "var(--accent)" }}>Hint 2 of 2</div>
+            </div>
+            <div className="hand" style={{ fontSize: 18, lineHeight: 1.3 }}>{hints[1]}</div>
+          </div>
+        ) : null}
+
+        <div className="hr" />
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          {hintsRevealed < 2 ? (
+            <button
+              className="hand"
+              style={{
+                fontSize: 16,
+                color: "var(--ink)",
+                padding: 0,
+                background: "none",
+                border: 0,
+                cursor: "pointer",
+              }}
+              onClick={() => setHintConfirmOpen(true)}
+              disabled={busy}
+            >
+              💡 hint <span className="acc">(+60s)</span>
+            </button>
+          ) : (
+            <div className="hand muted" style={{ fontSize: 15 }}>no hints left</div>
+          )}
+          <button
+            className="hand"
+            style={{
+              fontSize: 16,
+              color: "var(--ink)",
+              padding: 0,
+              background: "none",
+              border: 0,
+              cursor: "pointer",
+            }}
+            onClick={() => setMapOpen(true)}
+            disabled={busy}
+          >
+            🗺️ map
+          </button>
+        </div>
+
+        <button
+          className="btn primary"
+          onClick={() => unlock()}
+          disabled={busy || !withinGeofence}
+          style={{ width: "100%", minHeight: 52, fontSize: 15, opacity: !withinGeofence ? 0.6 : 1 }}
+        >
+          {withinGeofence ? "I'm here · verify ✓" : "Walking there →"}
+        </button>
+        <div className="muted small" style={{ textAlign: "center" }}>
+          {distanceM != null
+            ? `${Math.round(distanceM)} m from ${clue.location_name ?? "checkpoint"}`
+            : gpsErr
+              ? gpsErr
+              : "locating…"}
+        </div>
+        {showOverride && !withinGeofence ? (
+          <button
+            className="btn ghost"
+            onClick={() => unlock({ manualOverride: true })}
+            disabled={busy}
+            style={{ width: "100%" }}
+          >
+            Stuck? Mark as arrived
+          </button>
+        ) : null}
+      </article>
 
       {error ? (
         <div className="p" style={{ color: "var(--bad)", maxWidth: 320, textAlign: "center" }}>{error}</div>
@@ -1033,32 +1037,38 @@ function TierZoomOverlay({ nextTier }: { nextTier: number }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: 32,
+        padding: 24,
       }}
     >
-      <div style={{ width: "min(100%, 320px)" }}>
-        <Phone>
-          <div className="body" style={{ padding: 0, position: "relative" }}>
-            <div className="ph-box map" style={{ position: "absolute", inset: 0, borderRadius: 0, border: 0 }} />
-            <div
-              style={{
-                position: "absolute",
-                left: "54%",
-                top: "54%",
-                transform: "translate(-50%,-50%)",
-                width: 96,
-                height: 96,
-                border: "2.4px dashed var(--accent)",
-                borderRadius: "50%",
-                background: "rgba(239,91,58,0.12)",
-              }}
-            />
-            <div style={{ position: "absolute", top: 46, left: 14, right: 14 }} className="card">
-              <div className="label">Tier {nextTier} unlocked</div>
-              <div className="h2" style={{ marginTop: 4 }}>New clues are live</div>
-            </div>
-          </div>
-        </Phone>
+      <div
+        style={{
+          width: "min(100%, 560px)",
+          height: "min(60vh, 420px)",
+          position: "relative",
+          border: "var(--stroke) solid var(--ink)",
+          borderRadius: 24,
+          overflow: "hidden",
+          boxShadow: "8px 10px 0 rgba(26,26,34,0.10)",
+        }}
+      >
+        <div className="ph-box map" style={{ position: "absolute", inset: 0, borderRadius: 0, border: 0 }} />
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%,-50%)",
+            width: 140,
+            height: 140,
+            border: "2.4px dashed var(--accent)",
+            borderRadius: "50%",
+            background: "rgba(239,91,58,0.12)",
+          }}
+        />
+        <div style={{ position: "absolute", top: 18, left: 18, right: 18 }} className="card">
+          <div className="label">Tier {nextTier} unlocked</div>
+          <div className="h2" style={{ marginTop: 4 }}>New clues are live · map zooming out</div>
+        </div>
       </div>
     </div>
   );

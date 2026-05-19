@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Phone } from "../../../_components/Phone";
 
 type SessionRow = {
   id: string;
@@ -113,62 +112,83 @@ export function StandingsView({
   }, [sessions, now]);
 
   return (
-    <Phone>
-      <div className="body">
-        <div className="pad">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <div className="hand" style={{ fontSize: 26 }}>Standings</div>
-            <div className="pill ghost">updates live</div>
-          </div>
+    <section style={{ width: "min(100%, 640px)", display: "flex", flexDirection: "column", gap: 14 }}>
+      <header
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <div className="hand" style={{ fontSize: 34, lineHeight: 1 }}>Standings</div>
           <div className="muted small" style={{ marginTop: 4 }}>
             {huntName} · {sessions.length} {sessions.length === 1 ? "team" : "teams"}
           </div>
         </div>
-        <div className="pad" style={{ paddingTop: 0, flex: 1, overflow: "auto" }}>
-          <div className="card" style={{ padding: "6px 4px" }}>
-            {ranked.length === 0 ? (
-              <div className="p muted" style={{ padding: 12 }}>
-                No teams yet. Be the first to start the hunt.
+        <div className="pill ghost" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span
+            aria-hidden
+            style={{
+              display: "inline-block",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: "var(--good)",
+              boxShadow: "0 0 0 3px rgba(47,158,107,0.18)",
+            }}
+          />
+          updates live
+        </div>
+      </header>
+
+      <div
+        style={{
+          background: "var(--paper)",
+          border: "var(--stroke) solid var(--ink)",
+          borderRadius: 16,
+          padding: "8px 10px",
+          boxShadow: "4px 6px 0 rgba(26,26,34,0.05)",
+        }}
+      >
+        {ranked.length === 0 ? (
+          <div className="p muted" style={{ padding: 16, textAlign: "center" }}>
+            No teams yet. Be the first to start the hunt.
+          </div>
+        ) : (
+          ranked.map((s, i) => {
+            const isMe = s.team_id === myTeamId;
+            const c = AV_COLORS[i % AV_COLORS.length];
+            return (
+              <div className={`lb ${isMe ? "me" : ""}`} key={s.id} style={{ padding: "10px 8px", fontSize: 13 }}>
+                <div className="rank" style={{ fontSize: 13 }}>{i + 1}</div>
+                <div
+                  className="av lg"
+                  style={{ background: c, color: c === "#c9f558" ? "var(--ink)" : "white" }}
+                >
+                  {initials(s.team_name)}
+                </div>
+                <div className="nm" style={{ fontSize: 14 }}>
+                  {isMe ? `You · ${s.team_name}` : s.team_name}
+                </div>
+                <div className="pr" style={{ fontSize: 11 }}>
+                  {s.state === "completed"
+                    ? "done"
+                    : s.state === "lobby"
+                      ? "lobby"
+                      : s.progressLabel}
+                </div>
+                <div className="tm" style={{ fontSize: 13 }}>{fmt(s.elapsed)}</div>
               </div>
-            ) : (
-              ranked.map((s, i) => {
-                const isMe = s.team_id === myTeamId;
-                const c = AV_COLORS[i % AV_COLORS.length];
-                return (
-                  <div className={`lb ${isMe ? "me" : ""}`} key={s.id}>
-                    <div className="rank">{i + 1}</div>
-                    <div
-                      className="av"
-                      style={{ background: c, color: c === "#c9f558" ? "var(--ink)" : "white" }}
-                    >
-                      {initials(s.team_name)}
-                    </div>
-                    <div className="nm">
-                      {isMe ? `You · ${s.team_name}` : s.team_name}
-                    </div>
-                    <div className="pr">
-                      {s.state === "completed"
-                        ? "done"
-                        : s.state === "lobby"
-                          ? "lobby"
-                          : s.progressLabel}
-                    </div>
-                    <div className="tm">{fmt(s.elapsed)}</div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <div className="muted small" style={{ marginTop: 8, textAlign: "center" }}>
-            {totalClues} clues total · sorted by progress, then time
-          </div>
-        </div>
-        <div className="tab">
-          <div className="ti"><div className="ic" />Hunt</div>
-          <div className="ti on"><div className="ic" />Standings</div>
-          <div className="ti"><div className="ic" />Reel</div>
-        </div>
+            );
+          })
+        )}
       </div>
-    </Phone>
+      <div className="muted small" style={{ textAlign: "center" }}>
+        {totalClues} clues total · sorted by progress, then time
+      </div>
+    </section>
   );
 }
