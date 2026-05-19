@@ -33,3 +33,18 @@ export function nameSimilarity(a: string, b: string): number {
   const union = ta.size + tb.size - intersection;
   return intersection / union;
 }
+
+export type MatchConfidence = "high" | "medium" | "low" | "no_match";
+
+/**
+ * Tiered confidence for a single best-candidate match.
+ * Caller is responsible for deciding `no_match` (zero candidates within 100m).
+ */
+export function classifyConfidence(
+  nameScore: number,
+  distanceMeters: number,
+): Exclude<MatchConfidence, "no_match"> {
+  if (nameScore >= 0.85 && distanceMeters <= 30) return "high";
+  if (nameScore >= 0.6 && distanceMeters <= 50) return "medium";
+  return "low";
+}
