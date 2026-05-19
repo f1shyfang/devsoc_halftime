@@ -31,14 +31,20 @@ export default async function FinalePage({
     .maybeSingle();
   if (!hunt) notFound();
 
-  // Find this user's team for the hunt
-  const { data: memberships } = await supabase
+  // Find this user's team for the hunt (two-step, no implicit join).
+  const { data: mems } = await supabase
     .from("quest_team_members")
-    .select("team_id, quest_teams!inner(id, hunt_id, name, invite_code)")
+    .select("team_id")
     .eq("user_id", user.id);
-  const team = (memberships ?? [])
-    .map((m) => m.quest_teams as unknown as { id: string; hunt_id: string; name: string; invite_code: string })
-    .find((t) => t.hunt_id === hunt.id);
+  const teamIds = (mems ?? []).map((m) => m.team_id);
+  if (teamIds.length === 0) redirect(`/quest/demo/${huntSlug}`);
+  const { data: teamsFound } = await supabase
+    .from("quest_teams")
+    .select("id, hunt_id, name, invite_code")
+    .in("id", teamIds)
+    .eq("hunt_id", hunt.id)
+    .limit(1);
+  const team = teamsFound?.[0];
   if (!team) redirect(`/quest/demo/${huntSlug}`);
 
   const { data: session } = await supabase
@@ -60,10 +66,10 @@ export default async function FinalePage({
   completed.sort((a, b) => (a.total_time_seconds ?? 0) - (b.total_time_seconds ?? 0));
   const rank = completed.findIndex((s) => s.id === session.id) + 1;
 
-  // Progress + photo gallery
+  // Progress + photo gallery (flat select; joins handled separately if needed).
   const { data: progress } = await supabase
     .from("quest_clue_progress")
-    .select("clue_id, hints_used, manual_override, photo_capture_url, unlocked_at, quest_clues!inner(location_name, tier, sequence_in_tier, photo_challenge_prompt)")
+    .select("clue_id, hints_used, manual_override, photo_capture_url, unlocked_at")
     .eq("hunt_session_id", session.id);
 
   const hintsUsed = (progress ?? []).reduce((n, p) => n + (p.hints_used ?? 0), 0);

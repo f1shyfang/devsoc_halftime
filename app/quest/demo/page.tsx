@@ -34,24 +34,27 @@ export default async function DemoHomePage() {
   }
 
   // Find any active session this user is already part of so we can offer "resume".
+  // Two-step (no nested joins) to sidestep RLS join quirks.
   const { data: memberships } = await supabase
     .from("quest_team_members")
-    .select("team_id, quest_teams!inner(hunt_id, name, invite_code, quest_hunts!inner(slug))")
+    .select("team_id")
     .eq("user_id", user.id);
-
+  const teamIds = (memberships ?? []).map((m) => m.team_id);
+  const { data: myTeams } = teamIds.length
+    ? await supabase
+        .from("quest_teams")
+        .select("id, hunt_id, name, invite_code")
+        .in("id", teamIds)
+    : { data: [] };
+  const huntSlugById = new Map((hunts ?? []).map((h) => [h.id, h.slug]));
   const activeByHuntId = new Map<string, { teamName: string; code: string; huntSlug: string }>();
-  for (const m of memberships ?? []) {
-    // typed as object via the inner join
-    const team = m.quest_teams as unknown as {
-      hunt_id: string;
-      name: string;
-      invite_code: string;
-      quest_hunts: { slug: string };
-    };
-    activeByHuntId.set(team.hunt_id, {
-      teamName: team.name,
-      code: team.invite_code,
-      huntSlug: team.quest_hunts.slug,
+  for (const t of myTeams ?? []) {
+    const slug = huntSlugById.get(t.hunt_id);
+    if (!slug) continue;
+    activeByHuntId.set(t.hunt_id, {
+      teamName: t.name,
+      code: t.invite_code,
+      huntSlug: slug,
     });
   }
 

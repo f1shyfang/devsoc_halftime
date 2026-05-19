@@ -78,25 +78,32 @@ export function PlayShell(props: Props) {
           filter: `team_id=eq.${props.team.id}`,
         },
         async () => {
-          const { data } = await supabase
+          const { data: rawMembers } = await supabase
             .from("quest_team_members")
-            .select("user_id, joined_at, quest_profiles:user_id(display_name, avatar_color)")
+            .select("user_id, joined_at")
             .eq("team_id", props.team.id);
-          if (data) {
-            const rows = data as unknown as Array<{
-              user_id: string;
-              joined_at: string;
-              quest_profiles: { display_name: string | null; avatar_color: string | null } | null;
-            }>;
-            setMembers(
-              rows.map((m) => ({
+          if (!rawMembers) return;
+          const ids = rawMembers.map((m) => m.user_id);
+          const { data: profiles } = ids.length
+            ? await supabase
+                .from("quest_profiles")
+                .select("user_id, display_name, avatar_color")
+                .in("user_id", ids)
+            : { data: [] };
+          const byId = new Map(
+            (profiles ?? []).map((p) => [p.user_id, p]),
+          );
+          setMembers(
+            rawMembers.map((m) => {
+              const p = byId.get(m.user_id);
+              return {
                 user_id: m.user_id,
                 joined_at: m.joined_at,
-                display_name: m.quest_profiles?.display_name ?? "Player",
-                avatar_color: m.quest_profiles?.avatar_color ?? "#ef5b3a",
-              })),
-            );
-          }
+                display_name: p?.display_name ?? "Player",
+                avatar_color: p?.avatar_color ?? "#ef5b3a",
+              };
+            }),
+          );
         },
       )
       .subscribe();

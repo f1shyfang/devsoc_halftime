@@ -28,15 +28,22 @@ export default async function HuntDetailPage({
   if (!hunt) notFound();
 
   // If user is already in a team for this hunt, send them straight in.
-  const { data: existing } = await supabase
+  const { data: myMemberships } = await supabase
     .from("quest_team_members")
-    .select("team_id, quest_teams!inner(hunt_id)")
+    .select("team_id")
     .eq("user_id", user.id);
-  const inThisHunt = (existing ?? []).find(
-    (m) =>
-      (m.quest_teams as unknown as { hunt_id: string }).hunt_id === hunt.id,
-  );
-  if (inThisHunt) redirect(`/quest/demo/${huntSlug}/play`);
+  const myTeamIds = (myMemberships ?? []).map((m) => m.team_id);
+  if (myTeamIds.length > 0) {
+    const { data: matching } = await supabase
+      .from("quest_teams")
+      .select("id")
+      .in("id", myTeamIds)
+      .eq("hunt_id", hunt.id)
+      .limit(1);
+    if (matching && matching.length > 0) {
+      redirect(`/quest/demo/${huntSlug}/play`);
+    }
+  }
 
   const { data: clueCount } = await supabase
     .from("quest_clues")

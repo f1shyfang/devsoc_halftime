@@ -25,10 +25,22 @@ export default async function StandingsPage({
   if (!hunt) notFound();
 
   // Initial fetch — client subscribes to updates from here.
-  const { data: sessions } = await supabase
+  const { data: sessionsRaw } = await supabase
     .from("quest_hunt_sessions")
-    .select("*, quest_teams!inner(id, name)")
+    .select("*")
     .eq("hunt_id", hunt.id);
+  const sessionTeamIds = (sessionsRaw ?? []).map((s) => s.team_id);
+  const { data: teamsForSessions } = sessionTeamIds.length
+    ? await supabase
+        .from("quest_teams")
+        .select("id, name")
+        .in("id", sessionTeamIds)
+    : { data: [] };
+  const teamNameById = new Map((teamsForSessions ?? []).map((t) => [t.id, t.name]));
+  const sessions = (sessionsRaw ?? []).map((s) => ({
+    ...s,
+    quest_teams: { id: s.team_id, name: teamNameById.get(s.team_id) ?? "Team" },
+  }));
 
   const { data: clues } = await supabase
     .from("quest_clues")
@@ -38,14 +50,19 @@ export default async function StandingsPage({
     .order("sequence_in_tier", { ascending: true });
 
   const myTeamId = await (async () => {
-    const { data } = await supabase
+    const { data: mems } = await supabase
       .from("quest_team_members")
-      .select("team_id, quest_teams!inner(hunt_id)")
+      .select("team_id")
       .eq("user_id", user.id);
-    const mine = (data ?? []).find(
-      (m) => (m.quest_teams as unknown as { hunt_id: string }).hunt_id === hunt.id,
-    );
-    return mine?.team_id ?? null;
+    const ids = (mems ?? []).map((m) => m.team_id);
+    if (ids.length === 0) return null;
+    const { data: matching } = await supabase
+      .from("quest_teams")
+      .select("id")
+      .in("id", ids)
+      .eq("hunt_id", hunt.id)
+      .limit(1);
+    return matching?.[0]?.id ?? null;
   })();
 
   return (

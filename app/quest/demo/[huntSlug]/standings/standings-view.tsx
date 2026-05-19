@@ -67,18 +67,22 @@ export function StandingsView({
         "postgres_changes",
         { event: "*", schema: "public", table: "quest_hunt_sessions", filter: `hunt_id=eq.${huntId}` },
         async () => {
-          const { data } = await supabase
+          const { data: raw } = await supabase
             .from("quest_hunt_sessions")
-            .select("*, quest_teams!inner(id, name)")
+            .select("*")
             .eq("hunt_id", huntId);
-          if (data) {
-            setSessions(
-              data.map((s) => ({
-                ...s,
-                team_name: (s.quest_teams as unknown as { name: string }).name,
-              })) as SessionRow[],
-            );
-          }
+          if (!raw) return;
+          const teamIds = raw.map((s) => s.team_id);
+          const { data: teams } = teamIds.length
+            ? await supabase
+                .from("quest_teams")
+                .select("id, name")
+                .in("id", teamIds)
+            : { data: [] };
+          const byId = new Map((teams ?? []).map((t) => [t.id, t.name]));
+          setSessions(
+            raw.map((s) => ({ ...s, team_name: byId.get(s.team_id) ?? "Team" })) as SessionRow[],
+          );
         },
       )
       .subscribe();

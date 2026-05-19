@@ -47,15 +47,14 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  // Only gate routes that actually need a session. Wireframe pages under
+  // /quest (excluding /quest/demo) are public design references.
+  const path = request.nextUrl.pathname;
+  const needsAuth = path.startsWith("/protected") || path.startsWith("/quest/demo");
+  if (needsAuth && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
+    url.searchParams.set("next", path + (request.nextUrl.search || ""));
     return NextResponse.redirect(url);
   }
 
