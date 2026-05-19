@@ -1,3 +1,16 @@
 {
-  "enabledMcpjsonServers": ["supabase"]
+  "permissions": {
+    "allow": [
+      "Bash(git -C /mnt/d/Documents/devsoc_halftime log --oneline -20)",
+      "Bash(git -C /mnt/d/Documents/devsoc_halftime branch -a)",
+      "Bash(git -C /mnt/d/Documents/devsoc_halftime submodule status)",
+      "Bash(git -C /mnt/d/Documents/devsoc_halftime ls-files --stage)",
+      "Bash(git -C /mnt/d/Documents/devsoc_halftime config --file .gitmodules --get-regexp '.*')",
+      "Bash(rmdir /mnt/d/Documents/devsoc_halftime/.claude/hooks)",
+      "Bash(git -C /mnt/d/Documents/devsoc_halftime status)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
