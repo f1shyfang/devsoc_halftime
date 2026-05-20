@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getDeviceIdServer } from "@/lib/device-id.server";
-import { DisplayNameSheet } from "./_components/DisplayNameSheet";
 import { OnboardingCarousel } from "./_components/OnboardingCarousel";
 import { QuestIcon, emojiToIcon, type IconName } from "../_components/QuestIcon";
 
@@ -25,14 +24,12 @@ export default async function DemoHomePage() {
     p_display_name: "",
   });
 
-  // Pull the profile so we can show the real display name and decide whether
-  // to prompt for one. `quest_ensure_profile` defaults display_name to 'player'.
+  // Pull the profile so we can show the real display name in the footer.
   const { data: profile } = await supabase
     .from("quest_profiles")
     .select("display_name, avatar_color")
     .eq("user_id", deviceId)
     .maybeSingle();
-  const needsName = !profile || profile.display_name === "player";
 
   const { data: hunts, error } = await supabase
     .from("quest_hunts")
@@ -181,7 +178,6 @@ export default async function DemoHomePage() {
       </div>
 
       <OnboardingCarousel />
-      {needsName ? <DisplayNameSheet initialName={profile?.display_name ?? ""} /> : null}
     </div>
   );
 }
