@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { getDeviceIdClient } from "@/lib/device-id";
+import useSWR from "swr";
+import { postJson, swrFetcher, uploadViaApi } from "@/lib/api/fetcher";
 import type { Clue, Hunt, MemberRow, ProgressRow, Session, TeamSummary } from "./types";
 import { haversineM } from "./geo";
 import { QRScanner } from "./QRScanner";
@@ -46,87 +46,22 @@ function formatPenalty(sec: number) {
 
 export function PlayShell(props: Props) {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
 
   const [session, setSession] = useState<Session>(props.session);
   const [members, setMembers] = useState<MemberRow[]>(props.members);
   const [progress, setProgress] = useState<ProgressRow[]>(props.initialProgress);
 
-  // Subscribe to realtime updates for this session.
+  const { data: polled } = useSWR<{ session: Session; progress: ProgressRow[]; members: MemberRow[] }>(
+    `/api/quest/sessions/${props.session.id}/state`,
+    swrFetcher,
+    { refreshInterval: 2500 },
+  );
   useEffect(() => {
-    const channel = supabase
-      .channel(`session:${session.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "quest_hunt_sessions",
-          filter: `id=eq.${session.id}`,
-        },
-        (payload) => {
-          if (payload.new) setSession(payload.new as Session);
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "quest_clue_progress",
-          filter: `hunt_session_id=eq.${session.id}`,
-        },
-        async () => {
-          const { data } = await supabase
-            .from("quest_clue_progress")
-            .select("*")
-            .eq("hunt_session_id", session.id);
-          if (data) setProgress(data as ProgressRow[]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "quest_team_members",
-          filter: `team_id=eq.${props.team.id}`,
-        },
-        async () => {
-          const { data: rawMembers } = await supabase
-            .from("quest_team_members")
-            .select("user_id, joined_at")
-            .eq("team_id", props.team.id);
-          if (!rawMembers) return;
-          const ids = rawMembers.map((m) => m.user_id);
-          const { data: profiles } = ids.length
-            ? await supabase
-                .from("quest_profiles")
-                .select("user_id, display_name, avatar_color")
-                .in("user_id", ids)
-            : { data: [] };
-          const byId = new Map(
-            (profiles ?? []).map((p) => [p.user_id, p]),
-          );
-          setMembers(
-            rawMembers.map((m) => {
-              const p = byId.get(m.user_id);
-              return {
-                user_id: m.user_id,
-                joined_at: m.joined_at,
-                display_name: p?.display_name ?? "Player",
-                avatar_color: p?.avatar_color ?? "#ef5b3a",
-              };
-            }),
-          );
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, session.id, props.team.id]);
+    if (!polled) return;
+    setSession(polled.session);
+    setProgress(polled.progress);
+    setMembers(polled.members);
+  }, [polled]);
 
   // When the session goes to completed, navigate to the finale.
   useEffect(() => {
@@ -188,7 +123,6 @@ function LobbyView({
   headerSlot,
   onStarted,
 }: Props & { onStarted: (s: Session) => void }) {
-  const supabase = useMemo(() => createClient(), []);
   const isLeader = team.leader_user_id === currentUserId;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,16 +137,13 @@ function LobbyView({
   const start = async () => {
     setBusy(true);
     setError(null);
-    const { data, error } = await supabase.rpc("quest_start_hunt", {
-      p_user_id: getDeviceIdClient(),
-      p_team_id: team.id,
-    });
+    const { data, error } = await postJson<Session>("/api/quest/sessions/start", { teamId: team.id });
     setBusy(false);
     if (error || !data) {
       setError(error?.message ?? "Could not start");
       return;
     }
-    onStarted(data as Session);
+    onStarted(data);
   };
 
   const copyCode = async () => {
@@ -528,8 +459,6 @@ function ActiveView({
   headerSlot: ReactNode;
   currentUserId: string;
 }) {
-  const supabase = useMemo(() => createClient(), []);
-
   // Wall-clock timer based on started_at.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -628,17 +557,16 @@ function ActiveView({
   // cleared and session.hint_penalty_seconds takes over.
   const chargePenalty = async (seconds: number): Promise<boolean> => {
     setPendingPenaltySec((p) => p + seconds);
-    const { data, error } = await supabase.rpc("quest_apply_penalty", {
-      p_user_id: getDeviceIdClient(),
-      p_session_id: session.id,
-      p_seconds: seconds,
+    const { data, error } = await postJson<Session>("/api/quest/sessions/penalty", {
+      sessionId: session.id,
+      seconds,
     });
     if (error || !data) {
       setError(error?.message ?? "Could not apply penalty");
       setPendingPenaltySec((p) => Math.max(0, p - seconds));
       return false;
     }
-    setSession(data as Session);
+    setSession(data);
     setPendingPenaltySec((p) => Math.max(0, p - seconds));
     return true;
   };
@@ -648,21 +576,20 @@ function ActiveView({
     setError(null);
     // Penalties are charged on hint/map confirm now, so unlock no longer adds
     // any seconds — we pass 0 to keep the RPC contract stable.
-    const { data, error } = await supabase.rpc("quest_unlock_clue", {
-      p_user_id: getDeviceIdClient(),
-      p_session_id: session.id,
-      p_clue_id: clue.id,
-      p_manual_override: !!opts?.manualOverride,
-      p_hints_used: 0,
-      p_photo_url: opts?.photoUrl ?? undefined,
-      p_maps_used: 0,
+    const { data, error } = await postJson<Session>("/api/quest/sessions/unlock", {
+      sessionId: session.id,
+      clueId: clue.id,
+      manualOverride: !!opts?.manualOverride,
+      hintsUsed: 0,
+      photoUrl: opts?.photoUrl ?? null,
+      mapsUsed: 0,
     });
     setBusy(false);
     if (error || !data) {
       setError(error?.message ?? "Could not unlock");
       return;
     }
-    const next = data as Session;
+    const next = data;
     setPendingNext(next);
 
     // Decide which overlay to show.
@@ -1010,24 +937,17 @@ function ActiveView({
             // in clue_progress via a second unlock-with-url call.
             let stored: string | null = null;
             try {
-              const fileName = `${session.id}/${clue.id}-${Date.now()}.jpg`;
               const blob = dataUrlToBlob(dataUrl);
-              const { error: upErr, data: upData } = await supabase.storage
-                .from("quest-photos")
-                .upload(fileName, blob, { contentType: "image/jpeg", upsert: false });
-              if (!upErr && upData) {
-                const { data } = supabase.storage.from("quest-photos").getPublicUrl(upData.path);
-                stored = data.publicUrl;
-              }
+              stored = await uploadViaApi(blob);
             } catch {
               // Swallow — we'll fall back to a data URL stub below.
             }
             const finalUrl = stored ?? `inline:${dataUrl.slice(0, 80)}…`;
-            await supabase
-              .from("quest_clue_progress")
-              .update({ photo_capture_url: finalUrl })
-              .eq("hunt_session_id", session.id)
-              .eq("clue_id", clue.id);
+            await postJson("/api/quest/progress/photo", {
+              sessionId: session.id,
+              clueId: clue.id,
+              photoUrl: finalUrl,
+            });
             setBusy(false);
             setPhotoPromptOpen(false);
             if (pendingNext) {
