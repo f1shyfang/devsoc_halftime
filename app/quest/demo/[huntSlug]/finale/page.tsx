@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { questHunts, questHuntSessions, questClues, questClueProgress, questTeams, questTeamMembers } from "@/lib/db/schema";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDeviceIdServer } from "@/lib/device-id.server";
 import { Crumbs } from "../../_components/Crumbs";
 import { FinaleActions } from "./FinaleActions";
@@ -13,75 +15,79 @@ export default async function FinalePage({
   params: Promise<{ huntSlug: string }>;
 }) {
   const { huntSlug } = await params;
-  const supabase = await createClient();
   const deviceId = await getDeviceIdServer();
 
-  const { data: hunt } = await supabase
-    .from("quest_hunts")
-    .select("*")
-    .eq("slug", huntSlug)
-    .maybeSingle();
+  const hunt =
+    (
+      await db
+        .select({ id: questHunts.id, slug: questHunts.slug, name: questHunts.name, description: questHunts.description, duration_minutes: questHunts.durationMinutes, recommended_team_size: questHunts.recommendedTeamSize, hero_emoji: questHunts.heroEmoji, status: questHunts.status, created_at: questHunts.createdAt })
+        .from(questHunts)
+        .where(eq(questHunts.slug, huntSlug))
+        .limit(1)
+    )[0] ?? null;
   if (!hunt) notFound();
 
   // Find this user's team for the hunt (two-step, no implicit join).
-  const { data: mems } = await supabase
-    .from("quest_team_members")
-    .select("team_id")
-    .eq("user_id", deviceId);
-  const teamIds = (mems ?? []).map((m) => m.team_id);
+  const mems = await db
+    .select({ team_id: questTeamMembers.teamId })
+    .from(questTeamMembers)
+    .where(eq(questTeamMembers.userId, deviceId));
+  const teamIds = mems.map((m) => m.team_id);
   if (teamIds.length === 0) redirect(`/quest/demo/${huntSlug}`);
-  const { data: teamsFound } = await supabase
-    .from("quest_teams")
-    .select("id, hunt_id, name, invite_code")
-    .in("id", teamIds)
-    .eq("hunt_id", hunt.id)
+  const teamsFound = await db
+    .select({ id: questTeams.id, hunt_id: questTeams.huntId, name: questTeams.name, invite_code: questTeams.inviteCode })
+    .from(questTeams)
+    .where(and(inArray(questTeams.id, teamIds), eq(questTeams.huntId, hunt.id)))
     .limit(1);
-  const team = teamsFound?.[0];
+  const team = teamsFound[0];
   if (!team) redirect(`/quest/demo/${huntSlug}`);
 
-  const { data: session } = await supabase
-    .from("quest_hunt_sessions")
-    .select("*")
-    .eq("team_id", team.id)
-    .maybeSingle();
+  const session =
+    (
+      await db
+        .select({ id: questHuntSessions.id, team_id: questHuntSessions.teamId, hunt_id: questHuntSessions.huntId, state: questHuntSessions.state, started_at: questHuntSessions.startedAt, completed_at: questHuntSessions.completedAt, current_tier: questHuntSessions.currentTier, current_sequence: questHuntSessions.currentSequence, hint_penalty_seconds: questHuntSessions.hintPenaltySeconds, total_time_seconds: questHuntSessions.totalTimeSeconds, created_at: questHuntSessions.createdAt, abandoned_at: questHuntSessions.abandonedAt, results_card_url: questHuntSessions.resultsCardUrl })
+        .from(questHuntSessions)
+        .where(eq(questHuntSessions.teamId, team.id))
+        .limit(1)
+    )[0] ?? null;
 
   if (!session) redirect(`/quest/demo/${huntSlug}/play`);
   if (session.state !== "completed") redirect(`/quest/demo/${huntSlug}/play`);
 
   // Compute rank.
-  const { data: allSessions } = await supabase
-    .from("quest_hunt_sessions")
-    .select("id, team_id, state, total_time_seconds")
-    .eq("hunt_id", hunt.id);
+  const allSessions = await db
+    .select({ id: questHuntSessions.id, team_id: questHuntSessions.teamId, state: questHuntSessions.state, total_time_seconds: questHuntSessions.totalTimeSeconds })
+    .from(questHuntSessions)
+    .where(eq(questHuntSessions.huntId, hunt.id));
 
-  const completed = (allSessions ?? []).filter((s) => s.state === "completed");
+  const completed = allSessions.filter((s) => s.state === "completed");
   completed.sort((a, b) => (a.total_time_seconds ?? 0) - (b.total_time_seconds ?? 0));
   const rank = completed.findIndex((s) => s.id === session.id) + 1;
 
   // Progress + photo gallery.
-  const { data: progress } = await supabase
-    .from("quest_clue_progress")
-    .select("clue_id, hints_used, manual_override, photo_capture_url, unlocked_at")
-    .eq("hunt_session_id", session.id)
-    .order("unlocked_at", { ascending: true });
+  const progress = await db
+    .select({ clue_id: questClueProgress.clueId, hints_used: questClueProgress.hintsUsed, manual_override: questClueProgress.manualOverride, photo_capture_url: questClueProgress.photoCaptureUrl, unlocked_at: questClueProgress.unlockedAt })
+    .from(questClueProgress)
+    .where(eq(questClueProgress.huntSessionId, session.id))
+    .orderBy(asc(questClueProgress.unlockedAt));
 
   // Clue lookup (for photo captions). Pull only what we need for this hunt.
-  const { data: clueRows } = await supabase
-    .from("quest_clues")
-    .select("id, photo_challenge_prompt, location_name")
-    .eq("hunt_id", hunt.id);
+  const clueRows = await db
+    .select({ id: questClues.id, photo_challenge_prompt: questClues.photoChallengePrompt, location_name: questClues.locationName })
+    .from(questClues)
+    .where(eq(questClues.huntId, hunt.id));
   const clueById = new Map(
-    (clueRows ?? []).map((c) => [c.id, c]),
+    clueRows.map((c) => [c.id, c]),
   );
 
-  const hintsUsed = (progress ?? []).reduce((n, p) => n + (p.hints_used ?? 0), 0);
-  const overrides = (progress ?? []).filter((p) => p.manual_override).length;
-  const photosCount = (progress ?? []).filter((p) => p.photo_capture_url).length;
+  const hintsUsed = progress.reduce((n, p) => n + (p.hints_used ?? 0), 0);
+  const overrides = progress.filter((p) => p.manual_override).length;
+  const photosCount = progress.filter((p) => p.photo_capture_url).length;
 
   // Only include photos with a real, fetchable URL — play-shell falls back to
   // an "inline:data:…" stub when storage upload fails; those can't be rendered
   // as <img src>.
-  const photos = (progress ?? [])
+  const photos = progress
     .filter((p) => typeof p.photo_capture_url === "string" && p.photo_capture_url.startsWith("http"))
     .map((p) => {
       const c = clueById.get(p.clue_id);

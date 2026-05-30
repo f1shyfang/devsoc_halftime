@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { questHunts, questHuntSessions, questClues, questClueProgress, questTeams, questTeamMembers, questProfiles } from "@/lib/db/schema";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDeviceIdServer } from "@/lib/device-id.server";
 import { PlayShell } from "./play-shell";
 import { Crumbs } from "../../_components/Crumbs";
@@ -13,81 +15,69 @@ export default async function PlayPage({
   params: Promise<{ huntSlug: string }>;
 }) {
   const { huntSlug } = await params;
-  const supabase = await createClient();
   const deviceId = await getDeviceIdServer();
 
-  const { data: hunt } = await supabase
-    .from("quest_hunts")
-    .select("*")
-    .eq("slug", huntSlug)
-    .maybeSingle();
+  const hunt =
+    (
+      await db
+        .select({ id: questHunts.id, slug: questHunts.slug, name: questHunts.name, description: questHunts.description, duration_minutes: questHunts.durationMinutes, recommended_team_size: questHunts.recommendedTeamSize, hero_emoji: questHunts.heroEmoji, status: questHunts.status, created_at: questHunts.createdAt })
+        .from(questHunts)
+        .where(eq(questHunts.slug, huntSlug))
+        .limit(1)
+    )[0] ?? null;
   if (!hunt) notFound();
 
   // Find this user's team for the hunt. Two-step lookup so we don't hit
   // RLS gotchas on the implicit team_members → teams join.
-  const logPgErr = (label: string, err: unknown) => {
-    if (!err) return;
-    const e = err as { message?: string; code?: string; details?: string; hint?: string };
-    // PostgrestError fields aren't enumerable; pull them out explicitly.
-    console.error(label, {
-      message: e.message,
-      code: e.code,
-      details: e.details,
-      hint: e.hint,
-    });
-  };
-  const { data: myMemberships, error: memErr } = await supabase
-    .from("quest_team_members")
-    .select("team_id")
-    .eq("user_id", deviceId);
-  logPgErr("quest play: memberships fetch failed", memErr);
-  const teamIds = (myMemberships ?? []).map((m) => m.team_id);
+  const myMemberships = await db
+    .select({ team_id: questTeamMembers.teamId })
+    .from(questTeamMembers)
+    .where(eq(questTeamMembers.userId, deviceId));
+  const teamIds = myMemberships.map((m) => m.team_id);
   if (teamIds.length === 0) {
     redirect(`/quest/demo/${huntSlug}`);
   }
-  const { data: candidateTeams, error: teamErr } = await supabase
-    .from("quest_teams")
-    .select("id, hunt_id, name, invite_code, leader_user_id")
-    .in("id", teamIds)
-    .eq("hunt_id", hunt.id);
-  logPgErr("quest play: teams fetch failed", teamErr);
-  const myTeam = (candidateTeams ?? [])[0] as TeamSummary | undefined;
+  const candidateTeams = await db
+    .select({ id: questTeams.id, hunt_id: questTeams.huntId, name: questTeams.name, invite_code: questTeams.inviteCode, leader_user_id: questTeams.leaderUserId })
+    .from(questTeams)
+    .where(and(inArray(questTeams.id, teamIds), eq(questTeams.huntId, hunt.id)));
+  const myTeam = candidateTeams[0] as TeamSummary | undefined;
   if (!myTeam) {
     redirect(`/quest/demo/${huntSlug}`);
   }
 
-  const [{ data: session }, { data: rawMembers }, { data: clues }] = await Promise.all([
-    supabase
-      .from("quest_hunt_sessions")
-      .select("*")
-      .eq("team_id", myTeam.id)
-      .maybeSingle(),
-    supabase
-      .from("quest_team_members")
-      .select("user_id, joined_at")
-      .eq("team_id", myTeam.id),
-    supabase
-      .from("quest_clues")
-      .select("*")
-      .eq("hunt_id", hunt.id)
-      .order("tier", { ascending: true })
-      .order("sequence_in_tier", { ascending: true }),
+  const [sessionRows, rawMembers, clues] = await Promise.all([
+    db
+      .select({ id: questHuntSessions.id, team_id: questHuntSessions.teamId, hunt_id: questHuntSessions.huntId, state: questHuntSessions.state, started_at: questHuntSessions.startedAt, completed_at: questHuntSessions.completedAt, current_tier: questHuntSessions.currentTier, current_sequence: questHuntSessions.currentSequence, hint_penalty_seconds: questHuntSessions.hintPenaltySeconds, total_time_seconds: questHuntSessions.totalTimeSeconds, created_at: questHuntSessions.createdAt, abandoned_at: questHuntSessions.abandonedAt, results_card_url: questHuntSessions.resultsCardUrl })
+      .from(questHuntSessions)
+      .where(eq(questHuntSessions.teamId, myTeam.id))
+      .limit(1),
+    db
+      .select({ user_id: questTeamMembers.userId, joined_at: questTeamMembers.joinedAt })
+      .from(questTeamMembers)
+      .where(eq(questTeamMembers.teamId, myTeam.id)),
+    db
+      .select({ id: questClues.id, hunt_id: questClues.huntId, tier: questClues.tier, sequence_in_tier: questClues.sequenceInTier, type: questClues.type, body_text: questClues.bodyText, image_url: questClues.imageUrl, verification_type: questClues.verificationType, location_name: questClues.locationName, location_lat: questClues.locationLat, location_lng: questClues.locationLng, geofence_radius_m: questClues.geofenceRadiusM, qr_code_payload: questClues.qrCodePayload, photo_challenge_prompt: questClues.photoChallengePrompt, hints: questClues.hints })
+      .from(questClues)
+      .where(eq(questClues.huntId, hunt.id))
+      .orderBy(asc(questClues.tier), asc(questClues.sequenceInTier)),
   ]);
+  const session = sessionRows[0] ?? null;
 
-  const memberUserIds = (rawMembers ?? []).map((m) => m.user_id);
-  const { data: profiles } = memberUserIds.length
-    ? await supabase
-        .from("quest_profiles")
-        .select("user_id, display_name, avatar_color")
-        .in("user_id", memberUserIds)
-    : { data: [] };
+  const memberUserIds = rawMembers.map((m) => m.user_id);
+  const profiles = memberUserIds.length
+    ? await db
+        .select({ user_id: questProfiles.userId, display_name: questProfiles.displayName, avatar_color: questProfiles.avatarColor })
+        .from(questProfiles)
+        .where(inArray(questProfiles.userId, memberUserIds))
+    : [];
   const profileById = new Map<string, { display_name: string; avatar_color: string }>(
-    (profiles ?? []).map((p) => [
+    profiles.map((p) => [
       p.user_id,
       { display_name: p.display_name, avatar_color: p.avatar_color },
     ]),
   );
-  const members = (rawMembers ?? []).map((m) => ({
+  const members = rawMembers.map((m) => ({
     user_id: m.user_id,
     joined_at: m.joined_at,
     display_name: profileById.get(m.user_id)?.display_name ?? "Player",
@@ -98,10 +88,10 @@ export default async function PlayPage({
     redirect(`/quest/demo/${huntSlug}`);
   }
 
-  const { data: progress } = await supabase
-    .from("quest_clue_progress")
-    .select("*")
-    .eq("hunt_session_id", session.id);
+  const progress = await db
+    .select({ id: questClueProgress.id, hunt_session_id: questClueProgress.huntSessionId, clue_id: questClueProgress.clueId, unlocked_at: questClueProgress.unlockedAt, hints_used: questClueProgress.hintsUsed, manual_override: questClueProgress.manualOverride, photo_capture_url: questClueProgress.photoCaptureUrl, maps_used: questClueProgress.mapsUsed })
+    .from(questClueProgress)
+    .where(eq(questClueProgress.huntSessionId, session.id));
 
   if (session.state === "completed") {
     redirect(`/quest/demo/${huntSlug}/finale`);

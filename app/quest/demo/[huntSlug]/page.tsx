@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { questHunts, questClues, questTeams, questTeamMembers } from "@/lib/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDeviceIdServer } from "@/lib/device-id.server";
 import { TeamGate } from "./team-gate";
 
@@ -13,39 +15,40 @@ export default async function HuntDetailPage({
   params: Promise<{ huntSlug: string }>;
 }) {
   const { huntSlug } = await params;
-  const supabase = await createClient();
   const deviceId = await getDeviceIdServer();
 
-  const { data: hunt } = await supabase
-    .from("quest_hunts")
-    .select("*")
-    .eq("slug", huntSlug)
-    .maybeSingle();
+  const hunt =
+    (
+      await db
+        .select({ id: questHunts.id, slug: questHunts.slug, name: questHunts.name, description: questHunts.description, duration_minutes: questHunts.durationMinutes, recommended_team_size: questHunts.recommendedTeamSize, hero_emoji: questHunts.heroEmoji, status: questHunts.status, created_at: questHunts.createdAt })
+        .from(questHunts)
+        .where(eq(questHunts.slug, huntSlug))
+        .limit(1)
+    )[0] ?? null;
 
   if (!hunt) notFound();
 
   // If user is already in a team for this hunt, send them straight in.
-  const { data: myMemberships } = await supabase
-    .from("quest_team_members")
-    .select("team_id")
-    .eq("user_id", deviceId);
-  const myTeamIds = (myMemberships ?? []).map((m) => m.team_id);
+  const myMemberships = await db
+    .select({ team_id: questTeamMembers.teamId })
+    .from(questTeamMembers)
+    .where(eq(questTeamMembers.userId, deviceId));
+  const myTeamIds = myMemberships.map((m) => m.team_id);
   if (myTeamIds.length > 0) {
-    const { data: matching } = await supabase
-      .from("quest_teams")
-      .select("id")
-      .in("id", myTeamIds)
-      .eq("hunt_id", hunt.id)
+    const matching = await db
+      .select({ id: questTeams.id })
+      .from(questTeams)
+      .where(and(inArray(questTeams.id, myTeamIds), eq(questTeams.huntId, hunt.id)))
       .limit(1);
-    if (matching && matching.length > 0) {
+    if (matching.length > 0) {
       redirect(`/quest/demo/${huntSlug}/play`);
     }
   }
 
-  const { data: clueCount } = await supabase
-    .from("quest_clues")
-    .select("id", { count: "exact", head: false })
-    .eq("hunt_id", hunt.id);
+  const clueCount = await db
+    .select({ id: questClues.id })
+    .from(questClues)
+    .where(eq(questClues.huntId, hunt.id));
 
   return (
     <div className="viewer" style={{ gap: 20 }}>
