@@ -73,10 +73,30 @@ export function createFreeroomsClient(
       if (query.usage) params.set("usage", query.usage);
       if (query.location) params.set("location", query.location);
 
-      return get<FreeroomsStatusResponse>(
+      const raw = await get<Record<string, unknown>>(
         "/rooms/status",
         params.size ? params : undefined,
       );
+
+      // Upstream wraps each building as { numAvailable, roomStatuses: {...} }.
+      // Normalize to our flat { [buildingId]: { [roomNumber]: status } } type.
+      // Stay tolerant of an already-flat shape (used in tests / older API).
+      const normalized: FreeroomsStatusResponse = {};
+      for (const [buildingId, value] of Object.entries(raw)) {
+        if (
+          value &&
+          typeof value === "object" &&
+          "roomStatuses" in value &&
+          typeof (value as { roomStatuses: unknown }).roomStatuses === "object"
+        ) {
+          normalized[buildingId] = (
+            value as { roomStatuses: FreeroomsStatusResponse[string] }
+          ).roomStatuses;
+        } else {
+          normalized[buildingId] = value as FreeroomsStatusResponse[string];
+        }
+      }
+      return normalized;
     },
   };
 }

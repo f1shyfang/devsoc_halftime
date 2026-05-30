@@ -89,6 +89,30 @@ describe("FreeroomsClient", () => {
     expect(status["K-J17"]["305"].status).toBe("free");
   });
 
+  it("getRoomStatus unwraps the upstream { numAvailable, roomStatuses } shape", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          "K-G27": {
+            numAvailable: 2,
+            roomStatuses: {
+              "108": { status: "free", endtime: "" },
+              "109": { status: "soon", endtime: "2026-05-19T14:00:00Z" },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const status = await client.getRoomStatus();
+
+    expect(status["K-G27"]["108"].status).toBe("free");
+    expect(status["K-G27"]["109"].status).toBe("soon");
+    // numAvailable must not leak through as a pseudo-room.
+    expect(status["K-G27"]).not.toHaveProperty("numAvailable");
+  });
+
   it("throws a typed error on non-2xx responses", async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response("server exploded", { status: 500 }),

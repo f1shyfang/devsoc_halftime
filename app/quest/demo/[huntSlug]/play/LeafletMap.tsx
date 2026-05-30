@@ -7,12 +7,22 @@ import { haversineM } from "./geo";
 
 type LatLng = { lat: number; lng: number };
 
+export type RoomMarker = {
+  lat: number;
+  lng: number;
+  name: string;
+  index: number;
+  done: boolean;
+  current: boolean;
+};
+
 type Props = {
   checkpoint: LatLng;
   player: LatLng | null;
   geofenceRadiusM: number;
   accuracyM?: number | null;
   locationName?: string | null;
+  rooms?: RoomMarker[];
 };
 
 const DEFAULT_ZOOM = 17;
@@ -23,6 +33,7 @@ export function LeafletMap({
   geofenceRadiusM,
   accuracyM,
   locationName,
+  rooms,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMapInstance | null>(null);
@@ -30,6 +41,7 @@ export function LeafletMap({
   const checkpointLabelRef = useRef<Marker | null>(null);
   const playerMarkerRef = useRef<Marker | null>(null);
   const accuracyRef = useRef<Circle | null>(null);
+  const roomMarkersRef = useRef<Marker[]>([]);
 
   // Initialise the map once.
   useEffect(() => {
@@ -95,6 +107,8 @@ export function LeafletMap({
       checkpointLabelRef.current = null;
       playerMarkerRef.current = null;
       accuracyRef.current = null;
+      roomMarkersRef.current.forEach((m) => m.remove());
+      roomMarkersRef.current = [];
     };
     // Initialise once; later prop changes are handled by the effects below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,6 +121,45 @@ export function LeafletMap({
     geofenceRef.current?.setRadius(geofenceRadiusM);
     checkpointLabelRef.current?.setLatLng([checkpoint.lat, checkpoint.lng]);
   }, [checkpoint.lat, checkpoint.lng, geofenceRadiusM]);
+
+  // Plot all room puzzles as numbered pins (current highlighted, done dimmed).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    let cancelled = false;
+
+    (async () => {
+      const L = await import("leaflet");
+      if (cancelled || !mapRef.current) return;
+
+      roomMarkersRef.current.forEach((m) => m.remove());
+      roomMarkersRef.current = [];
+
+      for (const r of rooms ?? []) {
+        const variant = r.current
+          ? " quest-room-pin--current"
+          : r.done
+            ? " quest-room-pin--done"
+            : "";
+        const icon = L.divIcon({
+          className: `quest-room-pin${variant}`,
+          html: `<span class="quest-room-pin__inner">${r.index}</span>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+        const marker = L.marker([r.lat, r.lng], {
+          icon,
+          interactive: false,
+          keyboard: false,
+        }).addTo(map);
+        roomMarkersRef.current.push(marker);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rooms]);
 
   // Player marker, accuracy ring, and framing.
   useEffect(() => {

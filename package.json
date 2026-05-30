@@ -7,7 +7,8 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
-    "enrich": "dotenv -e .env.local -- tsx scripts/enrich-buildings.ts"
+    "enrich": "dotenv -e .env.local -- tsx scripts/enrich-buildings.ts",
+    "clean:room-hunts": "dotenv -e .env.local -- tsx scripts/clean-room-hunts.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

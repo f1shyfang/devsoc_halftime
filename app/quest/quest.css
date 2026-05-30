@@ -530,3 +530,26 @@
   margin: 3px;
   box-shadow: 0 0 0 4px rgba(239, 91, 58, 0.25);
 }
+
+/* Room puzzle pins on the play map (generated free-room quests) */
+.quest-room-pin__inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink, #1a1a22);
+  color: #fff;
+  border: 2px solid #fff;
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.quest-room-pin--current .quest-room-pin__inner {
+  background: var(--accent, #ef5b3a);
+}
+.quest-room-pin--done .quest-room-pin__inner {
+  opacity: 0.45;
+}

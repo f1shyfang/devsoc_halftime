@@ -6,6 +6,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { getDeviceIdServer } from "@/lib/device-id.server";
 import { OnboardingCarousel } from "./_components/OnboardingCarousel";
 import { QuestIcon, emojiToIcon, type IconName } from "../_components/QuestIcon";
+import { SpawnRoomQuest } from "./SpawnRoomQuest";
 
 // "Coming Soon" cards — PRD §6.2 says the home should gesture at future
 // content. These are static placeholders, no DB rows.
@@ -129,6 +130,7 @@ export default async function DemoHomePage() {
           width: "min(100%, 420px)",
         }}
       >
+        <SpawnRoomQuest />
         {(hunts ?? []).map((hunt) => {
           const active = activeByHuntId.get(hunt.id);
           return (
