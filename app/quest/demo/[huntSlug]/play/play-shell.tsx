@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -856,6 +856,7 @@ function ActiveView({
       {/* MAP DRAWER */}
       {mapOpen ? (
         <MapDrawer
+          clues={clues}
           clue={clue}
           distanceM={distanceM}
           accuracy={coords?.accuracy ?? null}
@@ -968,12 +969,14 @@ function ActiveView({
 }
 
 function MapDrawer({
+  clues,
   clue,
   distanceM,
   accuracy,
   playerCoords,
   onClose,
 }: {
+  clues: Clue[];
   clue: Clue;
   distanceM: number | null;
   accuracy: number | null;
@@ -984,6 +987,23 @@ function MapDrawer({
   const checkpoint = hasCheckpointCoords
     ? { lat: Number(clue.location_lat), lng: Number(clue.location_lng) }
     : null;
+  const roomMarkers = useMemo(
+    () =>
+      clues
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) => c.location_lat != null && c.location_lng != null)
+        .map(({ c, i }) => ({
+          lat: Number(c.location_lat),
+          lng: Number(c.location_lng),
+          name: c.location_name ?? "",
+          index: i + 1,
+          current: c.id === clue.id,
+          done:
+            c.tier < clue.tier ||
+            (c.tier === clue.tier && c.sequence_in_tier < clue.sequence_in_tier),
+        })),
+    [clues, clue.id, clue.tier, clue.sequence_in_tier],
+  );
   return (
     <div
       style={{
@@ -1019,6 +1039,7 @@ function MapDrawer({
               geofenceRadiusM={clue.geofence_radius_m ?? 25}
               accuracyM={accuracy}
               locationName={clue.location_name}
+              rooms={roomMarkers}
             />
           ) : (
             <div
