@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { mvpGames } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { JoinForm } from "./join-form";
 import { DEMO_GAME_ID } from "@/lib/mvp/constants";
 
@@ -16,12 +18,19 @@ export default async function JoinPage({
   const { game: gameParam } = await searchParams;
   const gameId = gameParam?.trim() || DEMO_GAME_ID;
 
-  const supabase = await createClient();
-  const { data: game } = await supabase
-    .from("mvp_games")
-    .select("id, status, hardcoded_start_location, hunt_id")
-    .eq("id", gameId)
-    .maybeSingle();
+  const game =
+    (
+      await db
+        .select({
+          id: mvpGames.id,
+          status: mvpGames.status,
+          hardcoded_start_location: mvpGames.hardcodedStartLocation,
+          hunt_id: mvpGames.huntId,
+        })
+        .from(mvpGames)
+        .where(eq(mvpGames.id, gameId))
+        .limit(1)
+    )[0] ?? null;
 
   if (!game) notFound();
   if (game.status === "ended") {

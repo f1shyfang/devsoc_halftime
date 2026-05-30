@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { mvpGames, mvpPlayers } from "@/lib/db/schema";
+import { asc, eq } from "drizzle-orm";
 import { DEMO_GAME_ID } from "@/lib/mvp/constants";
 import { LeaderboardView } from "./leaderboard-view";
 import type { MvpLeaderboardRow } from "@/lib/mvp/types";
@@ -17,19 +19,27 @@ export default async function LeaderboardPage({
   const { game: gameParam } = await searchParams;
   const gameId = gameParam?.trim() || DEMO_GAME_ID;
 
-  const supabase = await createClient();
-  const { data: game } = await supabase
-    .from("mvp_games")
-    .select("id, hunt_id")
-    .eq("id", gameId)
-    .maybeSingle();
+  const game =
+    (
+      await db
+        .select({ id: mvpGames.id, hunt_id: mvpGames.huntId })
+        .from(mvpGames)
+        .where(eq(mvpGames.id, gameId))
+        .limit(1)
+    )[0] ?? null;
   if (!game) notFound();
 
-  const { data: rows } = await supabase
-    .from("mvp_players")
-    .select("id, name, completed_at, started_at, total_time_seconds")
-    .eq("game_id", gameId)
-    .order("completed_at", { ascending: true, nullsFirst: false });
+  const rows = await db
+    .select({
+      id: mvpPlayers.id,
+      name: mvpPlayers.name,
+      completed_at: mvpPlayers.completedAt,
+      started_at: mvpPlayers.startedAt,
+      total_time_seconds: mvpPlayers.totalTimeSeconds,
+    })
+    .from(mvpPlayers)
+    .where(eq(mvpPlayers.gameId, gameId))
+    .orderBy(asc(mvpPlayers.completedAt));
 
   return (
     <main className="min-h-[100dvh] flex flex-col bg-[#f7f1e3] text-[#1a1a22]">
