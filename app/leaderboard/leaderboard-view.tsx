@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import useSWR from "swr";
+import { swrFetcher } from "@/lib/api/fetcher";
 import { getStoredPlayerId } from "@/lib/mvp/player-storage";
 import type { MvpLeaderboardRow } from "@/lib/mvp/types";
 
@@ -30,8 +31,6 @@ export function LeaderboardView({
   gameId: string;
   initialRows: MvpLeaderboardRow[];
 }) {
-  const supabase = useMemo(() => createClient(), []);
-  const [rows, setRows] = useState(initialRows);
   const [now, setNow] = useState(() => Date.now());
   const [myId, setMyId] = useState<string | null>(null);
 
@@ -44,30 +43,12 @@ export function LeaderboardView({
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel(`mvp-game:${gameId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "mvp_players",
-          filter: `game_id=eq.${gameId}`,
-        },
-        async () => {
-          const { data } = await supabase
-            .from("mvp_players")
-            .select("id, name, completed_at, started_at, total_time_seconds")
-            .eq("game_id", gameId);
-          if (data) setRows(data as MvpLeaderboardRow[]);
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, gameId]);
+  const { data } = useSWR<{ rows: MvpLeaderboardRow[] }>(
+    `/api/mvp/games/${gameId}/leaderboard`,
+    swrFetcher,
+    { refreshInterval: 2500, fallbackData: { rows: initialRows } },
+  );
+  const rows = data?.rows ?? initialRows;
 
   const ranked = useMemo(() => {
     const enriched = rows.map((r) => ({
